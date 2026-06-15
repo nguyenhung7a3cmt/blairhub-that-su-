@@ -1,5 +1,8 @@
 -- BlairHub split chunk
 local Lighting = game:GetService("Lighting")
+if not Lighting then
+    Lighting = game:FindService("Lighting") or game:FindFirstChild("Lighting")
+end
 local S = (...) or {}
 local Players = S.Players
 local RunService = S.RunService
@@ -316,10 +319,16 @@ local function cleanESPCache()
     end
 end
 
-local origLight={
-    Ambient=Lighting.Ambient,OutdoorAmbient=Lighting.OutdoorAmbient,
-    Brightness=Lighting.Brightness,ClockTime=Lighting.ClockTime,FogEnd=Lighting.FogEnd,
-}
+local origLight = {}
+pcall(function()
+    origLight = {
+        Ambient = Lighting.Ambient,
+        OutdoorAmbient = Lighting.OutdoorAmbient,
+        Brightness = Lighting.Brightness,
+        ClockTime = Lighting.ClockTime,
+        FogEnd = Lighting.FogEnd,
+    }
+end)
 local function applyFullBright()
     Lighting.Ambient=Color3.new(1,1,1); Lighting.OutdoorAmbient=Color3.new(1,1,1)
     Lighting.Brightness=3; Lighting.ClockTime=14; Lighting.FogEnd=999999
