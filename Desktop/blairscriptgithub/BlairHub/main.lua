@@ -1,5 +1,4 @@
 -- BlairHub GitHub Loader
--- 3-chunk split, shared table S
 
 _G.BlairHub = false
 task.wait(1.5)
@@ -12,13 +11,13 @@ pcall(function()
 end)
 
 local BASE_URL = "https://raw.githubusercontent.com/nguyenhung7a3cmt/blairhub-that-su-/master/Desktop/blairscriptgithub/BlairHub/"
-local function load(file, shared)
-    return loadstring(game:HttpGet(BASE_URL .. file))(shared)
+
+local function load(file)
+    loadstring(game:HttpGet(BASE_URL .. file))()
 end
 
-local S = {}
-S = load("part1.lua", S)
-S = load("part2.lua", S)
-S = load("part3.lua", S)
+load("part1.lua")
+load("part2.lua")
+load("part3.lua")
 
-print("[BlairHub] Split loader loaded")
+print("[BlairHub] Loaded")
