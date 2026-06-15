@@ -12,12 +12,12 @@ end)
 
 local BASE_URL = "https://raw.githubusercontent.com/nguyenhung7a3cmt/blairhub-that-su-/master/Desktop/blairscriptgithub/BlairHub/"
 
-local function load(file)
-    loadstring(game:HttpGet(BASE_URL .. file))()
+local function load(file, arg)
+    return loadstring(game:HttpGet(BASE_URL .. file))(arg)
 end
 
-load("part1.lua")
-load("part2.lua")
-load("part3.lua")
+local S = load("part1.lua")
+S = load("part2.lua", S)
+S = load("part3.lua", S)
 
 print("[BlairHub] Loaded")
