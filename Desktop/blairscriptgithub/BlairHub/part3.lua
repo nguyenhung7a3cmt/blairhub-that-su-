@@ -3,7 +3,6 @@ local Lighting = game:GetService("Lighting")
 local S = (...) or {}
 local Players = S.Players
 local RunService = S.RunService
-local Lighting = S.Lighting
 local TweenService = S.TweenService
 local UIS = S.UIS
 local RS = S.RS
