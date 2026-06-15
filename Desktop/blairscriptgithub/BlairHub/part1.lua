@@ -52,9 +52,39 @@ local Config = {
 }
 local KEYBINDS = {
     Fly = Enum.KeyCode.F,
-    Ghost = Enum.KeyCode.G,
+    Ghost = Enum.KeyCode.Y,
     Trait = Enum.KeyCode.T,
 }
+
+-- Auto save/load config
+local CONFIG_FILE = "BlairHub_config.json"
+local function saveConfig()
+    if not writefile then return end
+    local data = {}
+    for k,v in pairs(Config) do data[k]=v end
+    data["__kb_Fly"]   = KEYBINDS.Fly.Name
+    data["__kb_Ghost"] = KEYBINDS.Ghost.Name
+    data["__kb_Trait"] = KEYBINDS.Trait.Name
+    pcall(function() writefile(CONFIG_FILE, game:GetService("HttpService"):JSONEncode(data)) end)
+end
+local function loadConfig()
+    if not readfile or not isfile then return end
+    if not isfile(CONFIG_FILE) then return end
+    pcall(function()
+        local data = game:GetService("HttpService"):JSONDecode(readfile(CONFIG_FILE))
+        local skip = {FlyMode=true,GhostMode=true,AutoFarm=true}
+        for k,v in pairs(data) do
+            if k:sub(1,4)=="__kb" then
+                local bind = k:sub(5)
+                local ok,kc = pcall(function() return Enum.KeyCode[v] end)
+                if ok and kc then KEYBINDS[bind]=kc end
+            elseif Config[k]~=nil and not skip[k] then
+                Config[k]=v
+            end
+        end
+    end)
+end
+loadConfig()
 local detectedEvidence  = {}
 local evidenceRefs      = {}
 local ghostCells        = {}
@@ -1142,6 +1172,8 @@ S.C = C
 S.EV_MAP = EV_MAP
 S.EVIDENCE_INFO = EVIDENCE_INFO
 S.GHOST_DB = GHOST_DB
+S.saveConfig = saveConfig
+S.loadConfig = loadConfig
 S.Config = Config
 S.KEYBINDS = KEYBINDS
 S.detectedEvidence = detectedEvidence

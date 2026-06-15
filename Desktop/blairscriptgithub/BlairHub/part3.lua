@@ -522,10 +522,20 @@ HuntBanner.Size=UDim2.new(1,0,0,52); HuntBanner.BackgroundColor3=C.Red
 HuntBanner.BorderSizePixel=0; HuntBanner.Visible=false; HuntBanner.ZIndex=100
 _G.BlairHuntAlert=HuntBanner
 local HuntL=Instance.new("TextLabel",HuntBanner)
-HuntL.Size=UDim2.new(1,0,1,0); HuntL.BackgroundTransparency=1
+HuntL.Size=UDim2.new(1,0,0,32); HuntL.BackgroundTransparency=1
 HuntL.Text="!!  GHOST HUNTING  —  FLEE OUTSIDE  !!"
 HuntL.TextColor3=Color3.new(1,1,1); HuntL.TextSize=20
 HuntL.Font=Enum.Font.GothamBold; HuntL.ZIndex=101
+local HuntCountdown=Instance.new("TextLabel",HuntBanner)
+HuntCountdown.Name="HuntCountdown"
+HuntCountdown.Size=UDim2.new(1,0,0,20)
+HuntCountdown.Position=UDim2.new(0,0,1,-20)
+HuntCountdown.BackgroundTransparency=1
+HuntCountdown.Text="HUNTING"
+HuntCountdown.TextColor3=Color3.new(1,1,1)
+HuntCountdown.TextSize=13
+HuntCountdown.Font=Enum.Font.Gotham
+HuntCountdown.ZIndex=101
 
 task.spawn(function()
     while _G.BlairHub do
@@ -546,6 +556,49 @@ Win.Name="Main"; Win.Size=UDim2.new(0,WIN_W,0,WIN_H)
 Win.Position=UDim2.new(1,-WIN_W-16,0.5,-WIN_H/2)
 Win.BackgroundColor3=C.BG; Win.BorderSizePixel=0
 Win.Active=true; Win.Draggable=true
+
+-- Mobile: touch drag cho Win
+local _mDrag=false; local _mOff=Vector2.new()
+local UISvc=game:GetService("UserInputService")
+if UISvc.TouchEnabled then
+    TB.InputBegan:Connect(function(inp)
+        if inp.UserInputType==Enum.UserInputType.Touch then
+            _mDrag=true
+            local tp=inp.Position
+            local wp=Win.AbsolutePosition
+            _mOff=Vector2.new(tp.X-wp.X,tp.Y-wp.Y)
+        end
+    end)
+    UISvc.InputChanged:Connect(function(inp)
+        if _mDrag and inp.UserInputType==Enum.UserInputType.Touch then
+            local tp=inp.Position
+            local vp=workspace.CurrentCamera.ViewportSize
+            local nx=math.clamp(tp.X-_mOff.X,0,vp.X-WIN_W)
+            local ny=math.clamp(tp.Y-_mOff.Y,0,vp.Y-WIN_H)
+            Win.Position=UDim2.new(0,nx,0,ny)
+        end
+    end)
+    UISvc.InputEnded:Connect(function(inp)
+        if inp.UserInputType==Enum.UserInputType.Touch then _mDrag=false end
+    end)
+
+    -- Nút Hide UI cho mobile (thay RShift)
+    local MobileHideBtn=Instance.new("TextButton",sg)
+    MobileHideBtn.Size=UDim2.new(0,52,0,28)
+    MobileHideBtn.Position=UDim2.new(0,8,0,8)
+    MobileHideBtn.BackgroundColor3=Color3.fromRGB(40,40,80)
+    MobileHideBtn.TextColor3=Color3.new(1,1,1)
+    MobileHideBtn.Text="HIDE"
+    MobileHideBtn.TextSize=11
+    MobileHideBtn.Font=Enum.Font.GothamBold
+    MobileHideBtn.BorderSizePixel=0
+    MobileHideBtn.ZIndex=200
+    Instance.new("UICorner",MobileHideBtn).CornerRadius=UDim.new(0,6)
+    MobileHideBtn.MouseButton1Click:Connect(function()
+        if toggleUIVisible then toggleUIVisible() end
+        MobileHideBtn.Text=_uiVisible and "HIDE" or "SHOW"
+    end)
+end
 Instance.new("UICorner",Win).CornerRadius=UDim.new(0,12)
 local winStroke=Instance.new("UIStroke",Win)
 winStroke.Color=C.Stroke; winStroke.Thickness=1.5
@@ -589,6 +642,14 @@ CloseBtn.TextColor3=Color3.new(1,1,1); CloseBtn.TextSize=12
 CloseBtn.Font=Enum.Font.GothamBold; CloseBtn.BorderSizePixel=0
 Instance.new("UICorner",CloseBtn).CornerRadius=UDim.new(0,6)
 CloseBtn.MouseButton1Click:Connect(makeUnload)
+
+-- Auto save config mỗi 10s
+task.spawn(function()
+    while _G.BlairHub do
+        task.wait(10)
+        if S.saveConfig then pcall(S.saveConfig) end
+    end
+end)
 
 local gcam = {
     speed = 20,
@@ -833,8 +894,20 @@ disableGhostMode = function()
     end)
 end
 
+local _uiVisible = true
+local function toggleUIVisible()
+    _uiVisible = not _uiVisible
+    Win.Visible = _uiVisible
+    SanityCard.Visible = _uiVisible
+    TraitCard.Visible = _uiVisible
+end
+
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe or not _G.BlairHub then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        toggleUIVisible()
+        return
+    end
     if input.KeyCode == KEYBINDS.Fly then
         Config.FlyMode = not Config.FlyMode
         if Config.FlyMode then enableFly() else disableFly() end
@@ -1310,6 +1383,19 @@ SanityCard.Name="SanityTracker"
 SanityCard.Size=UDim2.new(0,220,0,0)
 SanityCard.AutomaticSize=Enum.AutomaticSize.Y
 SanityCard.Position=UDim2.new(1,-WIN_W-28,0,16)
+-- auto follow Win khi drag
+task.spawn(function()
+    while sg and sg.Parent do
+        task.wait(0.05)
+        if Win and SanityCard then
+            local wp = Win.Position
+            SanityCard.Position = UDim2.new(
+                wp.X.Scale, wp.X.Offset - 228,
+                wp.Y.Scale, wp.Y.Offset
+            )
+        end
+    end
+end)
 SanityCard.BackgroundColor3=Color3.fromRGB(10,10,22)
 SanityCard.BorderSizePixel=0
 SanityCard.ZIndex=50
@@ -1417,10 +1503,11 @@ local function updateSanityTracker()
 end
 
 -- Update loop
+-- Update loop (lazy: 2s, event hook vẫn update tức thì)
 task.spawn(function()
     while _G.BlairHub do
         updateSanityTracker()
-        task.wait(1)
+        task.wait(2)
     end
 end)
 
@@ -1548,6 +1635,17 @@ RunService.Heartbeat:Connect(function(dt)
 
                     if item:IsA("Model") or item:IsA("Tool") or item:IsA("BasePart") or item:IsA("MeshPart") then
                         if shouldESPItem(item) then
+                            -- Distance check 500 studs
+                            local _hrp = getChar() and getChar():FindFirstChild("HumanoidRootPart")
+                            local _anchor = item:IsA("BasePart") and item
+                                or item:FindFirstChild("Handle")
+                                or item:FindFirstChildWhichIsA("BasePart")
+                            local _dist = (_hrp and _anchor)
+                                and (_hrp.Position - _anchor.Position).Magnitude or 0
+                            if _dist > 500 then
+                                if espCache[item] then removeESP(item) end
+                                continue
+                            end
                             seen[item] = true
                             local espColor = getItemESPColor(item)
                             local espLabel = getItemESPLabel(item)
@@ -1581,6 +1679,26 @@ RunService.Heartbeat:Connect(function(dt)
             local hunting = hv and hv.Value==true
             if hunting and not _lastHunting then
                 if _G.BlairHuntAlert then _G.BlairHuntAlert.Visible=true end
+                -- Bắt đầu countdown hunt ~50s (estimate Blair hunt duration)
+                task.spawn(function()
+                    local _huntDur = 50
+                    local _t = _huntDur
+                    while _G.BlairHub and _t > 0 do
+                        task.wait(1)
+                        _t = _t - 1
+                        local hv2 = ghost and ghost:FindFirstChild("Hunting")
+                        local stillHunting = hv2 and hv2.Value==true
+                        if not stillHunting then break end
+                        if _G.BlairHuntAlert then
+                            local lbl = _G.BlairHuntAlert:FindFirstChild("HuntCountdown")
+                            if lbl then lbl.Text = "HUNT — " .. _t .. "s" end
+                        end
+                    end
+                    if _G.BlairHuntAlert then
+                        local lbl = _G.BlairHuntAlert:FindFirstChild("HuntCountdown")
+                        if lbl then lbl.Text = "HUNTING" end
+                    end
+                end)
             elseif not hunting and _lastHunting then
                 if _G.BlairHuntAlert then _G.BlairHuntAlert.Visible=false end
             end
