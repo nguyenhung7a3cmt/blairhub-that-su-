@@ -354,6 +354,10 @@ local disableFly -- forward
 
 local function hookHRP()
     if _hrpHooked then return end
+    if not (getrawmetatable and setreadonly and newcclosure) then
+        _hrpHooked = true
+        return
+    end
     local char = getChar()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
