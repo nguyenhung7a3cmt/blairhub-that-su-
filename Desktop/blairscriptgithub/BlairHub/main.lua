@@ -11,7 +11,7 @@ pcall(function()
     if old then old:Destroy() end
 end)
 
-local BASE_URL = "https://raw.githubusercontent.com/YOUR_NAME/BlairHub/main/"
+local BASE_URL = "https://raw.githubusercontent.com/nguyenhung7a3cmt/blairhub-that-su-/master/Desktop/blairscriptgithub/BlairHub/"
 local function load(file, shared)
     return loadstring(game:HttpGet(BASE_URL .. file))(shared)
 end
