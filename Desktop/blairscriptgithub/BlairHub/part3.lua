@@ -643,6 +643,31 @@ CloseBtn.Font=Enum.Font.GothamBold; CloseBtn.BorderSizePixel=0
 Instance.new("UICorner",CloseBtn).CornerRadius=UDim.new(0,6)
 CloseBtn.MouseButton1Click:Connect(makeUnload)
 
+-- Nút Mini Mode
+local MiniBtn=Instance.new("TextButton",TB)
+MiniBtn.Size=UDim2.new(0,26,0,26); MiniBtn.Position=UDim2.new(1,-68,0.5,-13)
+MiniBtn.BackgroundColor3=Color3.fromRGB(40,60,100); MiniBtn.Text="—"
+MiniBtn.TextColor3=Color3.new(1,1,1); MiniBtn.TextSize=14
+MiniBtn.Font=Enum.Font.GothamBold; MiniBtn.BorderSizePixel=0
+Instance.new("UICorner",MiniBtn).CornerRadius=UDim.new(0,6)
+local _isMini = false
+local _fullH = WIN_H
+MiniBtn.MouseButton1Click:Connect(function()
+    _isMini = not _isMini
+    if _isMini then
+        TweenService:Create(Win, TweenInfo.new(0.2), {
+            Size = UDim2.new(0, WIN_W, 0, 46)
+        }):Play()
+        MiniBtn.Text = "□"
+        showToast("Mini mode ON  (RShift ẩn/hiện)", C.Blue, "🗗")
+    else
+        TweenService:Create(Win, TweenInfo.new(0.2), {
+            Size = UDim2.new(0, WIN_W, 0, _fullH)
+        }):Play()
+        MiniBtn.Text = "—"
+    end
+end)
+
 -- Auto save config mỗi 10s
 task.spawn(function()
     while _G.BlairHub do
@@ -910,10 +935,12 @@ UIS.InputBegan:Connect(function(input, gpe)
     end
     if input.KeyCode == KEYBINDS.Fly then
         Config.FlyMode = not Config.FlyMode
-        if Config.FlyMode then enableFly() else disableFly() end
+        if Config.FlyMode then enableFly(); showToast("Fly ON", C.FlyPurple, "✈️")
+        else disableFly(); showToast("Fly OFF", C.TextMuted, "✈️") end
     elseif input.KeyCode == KEYBINDS.Ghost then
         Config.GhostMode = not Config.GhostMode
-        if Config.GhostMode then enableGhostMode() else disableGhostMode() end
+        if Config.GhostMode then enableGhostMode(); showToast("Ghost Mode ON", C.Blue, "👻")
+        else disableGhostMode(); showToast("Ghost Mode OFF", C.TextMuted, "👻") end
     end
 end)
 
@@ -1214,7 +1241,84 @@ makeButton("Go To Van",     "TP to leave button",33,Color3.fromRGB(30,60,30), go
 makeButton("Open Van Door", "fire van door prompt", 34,Color3.fromRGB(60,50,20), function()
     S.vanDoorOpened=false; openVanDoor()
 end)
-makeButton("TP to Cursed", "tele tới cursed item gần nhất", 36, Color3.fromRGB(80,20,20), function()
+makeButton("Photo Suspects", "chụp ảnh cursed + ghost + boo-boo", 36, Color3.fromRGB(80,20,20), function()
+    task.spawn(function()
+        local char = getChar()
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then setFarmStatus("No character", C.Red); return end
+
+        local function photoAt(part, label)
+            if not part or not _G.BlairHub then return end
+            setFarmStatus("Chụp: " .. label, C.FlyPurple)
+            tweenToPos(part.Position + Vector3.new(0, 0, 3), label, 50)
+            task.wait(0.5)
+            pcall(function()
+                local svc = game:GetService("ReplicatedStorage"):FindFirstChild("PhotoCameraService")
+                local ev = svc and svc:FindFirstChild("Events")
+                local tp = ev and ev:FindFirstChild("TakePhoto")
+                for _ = 1, 3 do
+                    task.wait(0.15)
+                    if tp then tp:InvokeServer() end
+                    task.wait(0.4)
+                end
+            end)
+        end
+
+        -- Lấy Photo Camera
+        if not hasInInventory("Photo Camera") then bringTool("Photo Camera") end
+        equipTool("Photo Camera")
+        task.wait(0.3)
+
+        -- 1. Tìm và chụp cursed item (chỉ có 1 trên map)
+        local Map = getMap()
+        local cursedPart = nil
+        local cs = Map and Map:FindFirstChild("CursedSpawns")
+        if cs then
+            for _, v in ipairs(cs:GetChildren()) do
+                local bp = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart")
+                if bp then cursedPart = bp; break end
+            end
+        end
+        -- Fallback: tìm trong Items
+        if not cursedPart then
+            local items = Map and Map:FindFirstChild("Items")
+            if items then
+                for _, v in ipairs(items:GetChildren()) do
+                    if isCursedItem(v) then
+                        local bp = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart")
+                        if bp then cursedPart = bp; break end
+                    end
+                end
+            end
+        end
+        if cursedPart then
+            photoAt(cursedPart, "Cursed Object")
+        else
+            setFarmStatus("Không tìm thấy cursed item!", C.Orange)
+        end
+
+        -- 2. Chụp Ghost
+        if _G.BlairHub then
+            local ghost = findGhost()
+            local gp = ghost and ghost:FindFirstChildWhichIsA("BasePart")
+            if gp then photoAt(gp, "Ghost") end
+        end
+
+        -- 3. Chụp Boo-Boo Doll
+        if _G.BlairHub then
+            local boo = workspace:FindFirstChild("BooBooDoll")
+            if not boo then
+                local it = getItems()
+                boo = it and (it:FindFirstChild("BooBooDoll") or it:FindFirstChild("The Panda"))
+            end
+            local bp = boo and (boo:IsA("BasePart") and boo or boo:FindFirstChildWhichIsA("BasePart"))
+            if bp then photoAt(bp, "Boo-Boo Doll") end
+        end
+
+        returnTool("Photo Camera")
+        setFarmStatus("Chụp xong tất cả vật khả nghi!", C.Green)
+    end)
+end)
     task.spawn(function()
         local char = getChar()
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -1784,11 +1888,122 @@ local traitVisible = true
 local traitListFrame = nil
 local TRAIT_MAX = 8
 
-local function addTraitLog(text, col)
-    col = col or C.Purple
-    -- Popup thông báo dù trait card đang ẩn
+-- ============ GLOBAL TOAST ============
+local _toastQueue = 0
+local function showToast(text, col, icon)
+    col = col or C.Green
+    icon = icon or "✅"
+    _toastQueue = _toastQueue + 1
+    local mySlot = _toastQueue
     task.spawn(function()
         local popup = Instance.new("Frame", sg)
+        popup.Size = UDim2.new(0, 260, 0, 34)
+        popup.Position = UDim2.new(0.5, -130, 0, 40 + (mySlot - 1) * 40)
+        popup.BackgroundColor3 = Color3.fromRGB(18, 22, 36)
+        popup.BorderSizePixel = 0
+        popup.ZIndex = 300
+        Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 8)
+        do local s = Instance.new("UIStroke", popup); s.Color = col; s.Thickness = 1.5 end
+        local lbl = Instance.new("TextLabel", popup)
+        lbl.Size = UDim2.new(1, -12, 1, 0)
+        lbl.Position = UDim2.new(0, 8, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = icon .. "  " .. text
+        lbl.TextColor3 = col
+        lbl.TextSize = 12
+        lbl.Font = Enum.Font.GothamBold
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.ZIndex = 301
+        TweenService:Create(popup, TweenInfo.new(0.25), {
+            Position = UDim2.new(0.5, -130, 0, 50 + (mySlot - 1) * 40)
+        }):Play()
+        task.wait(2.5)
+        TweenService:Create(popup, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+        TweenService:Create(lbl, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+        task.wait(0.3)
+        pcall(function() popup:Destroy() end)
+        _toastQueue = math.max(0, _toastQueue - 1)
+    end)
+end
+S.showToast = showToast
+-- ======= GHOST ROOM ARROW INDICATOR =======
+local GRArrow = Instance.new("BillboardGui")
+GRArrow.Name = "GRArrow"
+GRArrow.AlwaysOnTop = true
+GRArrow.Size = UDim2.new(0, 60, 0, 60)
+GRArrow.StudsOffset = Vector3.new(0, 6, 0)
+GRArrow.Parent = lp:WaitForChild("PlayerGui")
+GRArrow.Enabled = false
+
+local ArrowLbl = Instance.new("TextLabel", GRArrow)
+ArrowLbl.Size = UDim2.new(1, 0, 0.6, 0)
+ArrowLbl.Position = UDim2.new(0, 0, 0, 0)
+ArrowLbl.BackgroundTransparency = 1
+ArrowLbl.Text = "▲"
+ArrowLbl.TextColor3 = Color3.fromRGB(100, 180, 255)
+ArrowLbl.TextSize = 28
+ArrowLbl.Font = Enum.Font.GothamBold
+ArrowLbl.ZIndex = 5
+
+local ArrowDistLbl = Instance.new("TextLabel", GRArrow)
+ArrowDistLbl.Size = UDim2.new(1, 0, 0.4, 0)
+ArrowDistLbl.Position = UDim2.new(0, 0, 0.6, 0)
+ArrowDistLbl.BackgroundTransparency = 1
+ArrowDistLbl.Text = ""
+ArrowDistLbl.TextColor3 = Color3.fromRGB(180, 220, 255)
+ArrowDistLbl.TextSize = 10
+ArrowDistLbl.Font = Enum.Font.Gotham
+ArrowDistLbl.ZIndex = 5
+
+local _getSortedRooms = S.getSortedRooms
+task.spawn(function()
+    while _G.BlairHub do
+        task.wait(1)
+        pcall(function()
+            local char = getChar()
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp or not _getSortedRooms then GRArrow.Enabled=false; return end
+            local rooms = _getSortedRooms()
+            local ghost = findGhost()
+            local targetPos = nil
+            if ghost then
+                local ga = ghost:FindFirstChild("HumanoidRootPart") or ghost:FindFirstChildWhichIsA("BasePart")
+                if ga then
+                    local best, bestD = nil, math.huge
+                    for _, r in ipairs(rooms) do
+                        local d = ((r.center or r.pos) - ga.Position).Magnitude
+                        if d < bestD then bestD=d; best=r end
+                    end
+                    if best then targetPos = best.center or best.pos end
+                end
+            end
+            if not targetPos and #rooms > 0 then
+                targetPos = rooms[1].center or rooms[1].pos
+            end
+            if targetPos then
+                GRArrow.Adornee = hrp
+                GRArrow.Enabled = true
+                local dist = (hrp.Position - targetPos).Magnitude
+                ArrowDistLbl.Text = math.floor(dist) .. "m"
+                -- Rotate arrow label bằng cách tính góc trên minimap (2D)
+                local dir = (targetPos - hrp.Position)
+                local cam = workspace.CurrentCamera
+                local camLook = cam.CFrame.LookVector
+                local camRight = cam.CFrame.RightVector
+                local dx = dir:Dot(camRight)
+                local dz = dir:Dot(camLook)
+                local angle = math.atan2(dx, dz)
+                local arrows = {"▲","↗","▶","↘","▼","↙","◀","↖"}
+                local idx = math.floor(((angle + math.pi) / (math.pi * 2)) * 8 + 0.5) % 8 + 1
+                ArrowLbl.Text = arrows[idx]
+            else
+                GRArrow.Enabled = false
+            end
+        end)
+    end
+    GRArrow.Enabled = false
+end)
+-- ======================================
         popup.Size = UDim2.new(0, 280, 0, 32)
         popup.Position = UDim2.new(0.5, -140, 0, 60)
         popup.BackgroundColor3 = Color3.fromRGB(18, 10, 30)
