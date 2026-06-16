@@ -622,6 +622,16 @@ local function makeUnload()
         local hum=getChar() and getChar():FindFirstChildOfClass("Humanoid")
         if hum then hum.WalkSpeed=16 end
     end)
+    -- Nuke toàn bộ ESP orphan còn sót trong PlayerGui
+    pcall(function()
+        local pg = lp:FindFirstChild("PlayerGui")
+        if not pg then return end
+        for _, v in ipairs(pg:GetChildren()) do
+            if v:IsA("SelectionBox") or v:IsA("BillboardGui") or v:IsA("Highlight") then
+                pcall(function() v:Destroy() end)
+            end
+        end
+    end)
     sg:Destroy()
 end
 
@@ -1221,17 +1231,32 @@ makeButton("TP to Cursed", "tele tới cursed item gần nhất", 36, Color3.fro
         end
 
         local Map = getMap()
+        -- Ưu tiên CursedSpawns trước (đây là cursed item thật trên map)
         if Map then
             local cs = Map:FindFirstChild("CursedSpawns")
-            if cs then for _, v in ipairs(cs:GetChildren()) do consider(v) end end
-            local items = Map:FindFirstChild("Items")
-            if items then for _, v in ipairs(items:GetChildren()) do consider(v) end end
+            if cs then
+                for _, v in ipairs(cs:GetChildren()) do
+                    local bp = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart")
+                    if bp then
+                        local d = (bp.Position - hrp.Position).Magnitude
+                        if d < bestDist then bestDist = d; best = v; bestPart = bp end
+                    end
+                end
+            end
+            -- Chỉ scan Items nếu không tìm thấy gì trong CursedSpawns
+            if not best then
+                local items = Map:FindFirstChild("Items")
+                if items then
+                    for _, v in ipairs(items:GetChildren()) do consider(v) end
+                end
+            end
         end
-        -- Boo-Boo Doll + cursed object o workspace top-level
-        -- Chỉ lấy Model/Tool, không lấy BasePart lẻ để tránh match parent chain sai
-        for _, v in ipairs(workspace:GetChildren()) do
-            if v:IsA("Model") or v:IsA("Tool") then
-                consider(v)
+        -- Boo-Boo Doll ở workspace top-level
+        if not best then
+            for _, v in ipairs(workspace:GetChildren()) do
+                if (v:IsA("Model") or v:IsA("Tool")) and isBooBoo(v) then
+                    consider(v)
+                end
             end
         end
 

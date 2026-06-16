@@ -231,9 +231,6 @@ local function isHunting()
     local g=findGhost()
     local hv=g and g:FindFirstChild("Hunting")
     local result = hv and hv.Value==true
-    if result then
-        print("[DEBUG isHunting] TRUE - ghost model:", g and g.Name, "Hunting value:", hv and hv.Value)
-    end
     return result
 end
 
