@@ -74,8 +74,8 @@ local function loadConfig()
         local data = game:GetService("HttpService"):JSONDecode(readfile(CONFIG_FILE))
         local skip = {FlyMode=true,GhostMode=true,AutoFarm=true}
         for k,v in pairs(data) do
-            if k:sub(1,4)=="__kb" then
-                local bind = k:sub(5)
+            if k:sub(1,5)=="__kb_" then
+                local bind = k:sub(6)
                 local ok,kc = pcall(function() return Enum.KeyCode[v] end)
                 if ok and kc then KEYBINDS[bind]=kc end
             elseif Config[k]~=nil and not skip[k] then
@@ -397,7 +397,7 @@ tweenToPos = function(dest, label, speed)
     hrp.AssemblyAngularVelocity = Vector3.zero
 
     -- Chờ character rơi xuống sàn tự nhiên (tối đa 1.5s)
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    hum = char and char:FindFirstChildOfClass("Humanoid")
     if hum then
         hum:ChangeState(Enum.HumanoidStateType.Freefall)
     end
@@ -405,7 +405,7 @@ tweenToPos = function(dest, label, speed)
 
     local charF = getChar()
     local hrpF = charF and charF:FindFirstChild("HumanoidRootPart")
-    return hrpF and (hrpF.Position - landing).Magnitude < 20 or false
+    return hrpF and (hrpF.Position - dest).Magnitude < 25 or false
 end
 
 -- ============================================================================
@@ -1241,4 +1241,4 @@ S.conn = conn
 S.submitGuess = submitGuess
 S.goToVan = goToVan
 S.startPassiveDetection = startPassiveDetection
-return S
+return S    

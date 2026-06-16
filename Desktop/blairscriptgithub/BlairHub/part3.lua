@@ -41,14 +41,11 @@ local conn = S.conn
 local goToVan = S.goToVan
 local runAutoFarm = S.runAutoFarm
 local doAllQuests = S.doAllQuests
-local equipTool = S.equipTool
-local hasInInventory = S.hasInInventory
-local bringTool = S.bringTool
-local moveToPos = S.moveToPos
 
 -- ============ GLOBAL TOAST ============
 local _toastQueue = 0
 local function showToast(text, col, icon)
+    if not sg or not sg.Parent then return end  -- [FIX] guard: sg chưa tạo
     col = col or C.Green
     icon = icon or "✅"
     _toastQueue = _toastQueue + 1
@@ -338,10 +335,11 @@ local function updateGhostESP(ghost)
 end
 
 local function cleanESPCache()
+    local currentGhost = findGhost()  -- [FIX] gọi 1 lần, tránh GetChildren() lặp
     for model in pairs(espCache) do
         if not model or not model.Parent then
             removeESP(model)
-        elseif model ~= findGhost() then
+        elseif model ~= currentGhost then
             if not shouldESPItem(model) and model.Parent ~= getItems() then
                 removeESP(model)
             end
@@ -577,7 +575,10 @@ task.spawn(function()
             task.wait(0.22)
             TweenService:Create(HuntBanner,TweenInfo.new(0.22),{BackgroundColor3=C.HuntDark}):Play()
             task.wait(0.22)
-        else task.wait(0.5) end
+        else
+            task.wait(0.5)
+            if not _G.BlairHub then break end  -- [FIX] dừng ngay khi tắt
+        end
     end
 end)
 
@@ -593,6 +594,18 @@ Win.Active=true; Win.Draggable=true
 -- Mobile: touch drag cho Win
 local _mDrag=false; local _mOff=Vector2.new()
 local UISvc=game:GetService("UserInputService")
+Instance.new("UICorner",Win).CornerRadius=UDim.new(0,12)
+local winStroke=Instance.new("UIStroke",Win)
+winStroke.Color=C.Stroke; winStroke.Thickness=1.5
+
+local TB=Instance.new("Frame",Win)
+TB.Size=UDim2.new(1,0,0,46); TB.BackgroundColor3=C.BG2; TB.BorderSizePixel=0
+Instance.new("UICorner",TB).CornerRadius=UDim.new(0,12)
+local tbFix=Instance.new("Frame",TB)
+tbFix.Size=UDim2.new(1,0,0,12); tbFix.Position=UDim2.new(0,0,1,-12)
+tbFix.BackgroundColor3=C.BG2; tbFix.BorderSizePixel=0
+
+-- [FIX] Touch drag block chuyển xuống SAU khi TB đã được khai báo
 if UISvc.TouchEnabled then
     TB.InputBegan:Connect(function(inp)
         if inp.UserInputType==Enum.UserInputType.Touch then
@@ -632,16 +645,6 @@ if UISvc.TouchEnabled then
         MobileHideBtn.Text=_uiVisible and "HIDE" or "SHOW"
     end)
 end
-Instance.new("UICorner",Win).CornerRadius=UDim.new(0,12)
-local winStroke=Instance.new("UIStroke",Win)
-winStroke.Color=C.Stroke; winStroke.Thickness=1.5
-
-local TB=Instance.new("Frame",Win)
-TB.Size=UDim2.new(1,0,0,46); TB.BackgroundColor3=C.BG2; TB.BorderSizePixel=0
-Instance.new("UICorner",TB).CornerRadius=UDim.new(0,12)
-local tbFix=Instance.new("Frame",TB)
-tbFix.Size=UDim2.new(1,0,0,12); tbFix.Position=UDim2.new(0,0,1,-12)
-tbFix.BackgroundColor3=C.BG2; tbFix.BorderSizePixel=0
 
 local TitleL=Instance.new("TextLabel",TB)
 TitleL.Size=UDim2.new(1,-54,0,22); TitleL.Position=UDim2.new(0,14,0,6)
