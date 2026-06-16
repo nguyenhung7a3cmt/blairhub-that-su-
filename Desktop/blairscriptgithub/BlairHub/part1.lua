@@ -1394,7 +1394,6 @@ S.conn = conn
 S.submitGuess = submitGuess
 S.goToVan = goToVan
 S.startPassiveDetection = startPassiveDetection
-return S
-
 S.markObjectiveDoneText = markObjectiveDoneText
 S.isObjectiveDoneText = isObjectiveDoneText
+return S
