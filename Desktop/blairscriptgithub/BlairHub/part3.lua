@@ -1719,7 +1719,6 @@ RunService.Heartbeat:Connect(function(dt)
     _espTimer = _espTimer + dt
     if _espTimer < 0.5 then return end
     _espTimer = 0
-end) -- end Heartbeatimer = 0
 end)
 
 -- ============================================================================
