@@ -1986,7 +1986,7 @@ end)
         }):Play()
         task.wait(0.4)
         pcall(function() popup:Destroy() end)
-    end)
+    enableGhostMode()
 
     -- Thêm vào log trong card
     table.insert(traitLog, 1, {text=text, col=col, time=os.date("%H:%M:%S")})
