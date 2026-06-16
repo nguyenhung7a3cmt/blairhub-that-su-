@@ -39,6 +39,7 @@ local clearDetectionConns = S.clearDetectionConns
 local conn = S.conn
 local goToVan = S.goToVan
 local runAutoFarm = S.runAutoFarm
+local doAllQuests = S.doAllQuests
 
 -- ESP
 -- ============================================================================
@@ -100,13 +101,13 @@ local IMPORTANT_TOOL_NAMES = {
 }
 local CURSED_KEYWORDS = {
     "tarot",
-    "music",
+    "musicbox",
+    "music box",
     "spiritboard",
     "spirit board",
     "ouija",
     "summoningcircle",
     "summoning circle",
-    "mirror",
     "hauntedmirror",
     "haunted mirror",
     "monkeypaw",
@@ -1237,6 +1238,15 @@ makeButton("TP to Cursed", "tele tới cursed item gần nhất", 36, Color3.fro
         if not bestPart then setFarmStatus("No cursed item found", C.Orange); return end
         setFarmStatus("TP to cursed: " .. best.Name .. string.format(" (%.0fu)", bestDist), C.FlyPurple)
         tweenToPos(bestPart.Position + Vector3.new(0, 0, 2), "cursed", 50)
+    end)
+end)
+makeButton("Auto Quest", "tự động làm tất cả objectives", 35, Color3.fromRGB(50,30,80), function()
+    task.spawn(function()
+        if doAllQuests then
+            doAllQuests()
+        else
+            setFarmStatus("doAllQuests not found!", C.Red)
+        end
     end)
 end)
 makeButton("Pull All Tools", "tele tới từng tool quan trọng và tự nhặt", 37, Color3.fromRGB(40,40,80), function()
@@ -2407,9 +2417,18 @@ task.spawn(function()
             if knownItems[child] then
                 knownItems[child] = nil
                 if not isHunting() then
-                    markTrait("nook_steal",
-                        "NOOK: item '"..child.Name.."' biến mất khỏi map (Nook steal)!",
-                        C.Orange)
+                    -- Chờ 1s xem item có xuất hiện lại trong backpack/char không
+                    -- Nếu có = player nhặt, không phải Nook steal
+                    task.wait(1)
+                    local bp = getBP()
+                    local char = getChar()
+                    local inPlayer = (bp and bp:FindFirstChild(child.Name))
+                        or (char and char:FindFirstChild(child.Name))
+                    if not inPlayer then
+                        markTrait("nook_steal",
+                            "NOOK: item '"..child.Name.."' biến mất khỏi map (Nook steal)!",
+                            C.Orange)
+                    end
                 end
             end
         end)
