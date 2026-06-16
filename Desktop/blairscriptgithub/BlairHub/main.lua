@@ -11,6 +11,8 @@ pcall(function()
 end)
 
 local BASE_URL = "https://raw.githubusercontent.com/nguyenhung7a3cmt/blairhub-that-su-/master/Desktop/blairscriptgithub/BlairHub/"
+local _v = tostring(os.time()):sub(-4) -- cache bust
+local _origHttpGet = game.HttpGet
 
 local function load(file, arg)
     return loadstring(game:HttpGet(BASE_URL .. file))(arg)
