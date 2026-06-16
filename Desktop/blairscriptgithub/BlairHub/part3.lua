@@ -1938,7 +1938,6 @@ local TS = {
     saltHooked      = false,
 }
 
-local function initTraitDetection()
 local TRAIT_GHOST_MAP = {
     wraith_salt="Wraith", mare_light="Mare", phantom_los="Phantom",
     demon_hunt="Demon", shade_nohunt="Shade", poltergeist_polt="Poltergeist",
@@ -1947,6 +1946,8 @@ local TRAIT_GHOST_MAP = {
     lament_hide="Lament", oni_active="Oni", spirit_smudge="Spirit",
     yurei_teleport="Yurei",
 }
+
+local function initTraitDetection()
 
 local function markTrait(key, text, col)
     if TS.traitDetected and TS.traitDetected[key] then return end
