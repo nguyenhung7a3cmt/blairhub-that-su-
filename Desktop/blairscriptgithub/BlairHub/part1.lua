@@ -44,6 +44,7 @@ local EVIDENCE_INFO = {
     {key="UV",      label="Ultraviolet",           icon="U"},
 }
 local GHOST_DB = {}
+local GHOST_DB_SET = {} -- [OPT-3] Set lookup cache
 
 local Config = {
     FullBright=false,GhostESP=false,ItemESP=false,HuntAlert=false,
@@ -104,28 +105,25 @@ local function resetMissCounts() S.evidenceMissCount={}; S.evidenceConfirmedAbse
 local function markAbsent(k) S.evidenceConfirmedAbsent[k]=true end
 local function shouldSkip(k)
     if detectedEvidence[k] then return true end
-    if (S.evidenceMissCount[k] or 0)>=MISS_SKIP then return true end
-    local possible={}
-    for name,evidences in pairs(GHOST_DB) do
-        local eliminated=false
-        for ev,det in pairs(detectedEvidence) do
-            if det then
-                local has=false
-                for _,ge in ipairs(evidences) do if ge==ev then has=true; break end end
-                if not has then eliminated=true; break end
-            end
+    if (S.evidenceMissCount[k] or 0) >= MISS_SKIP then return true end
+    local possible = {}
+    for name, evSet in pairs(GHOST_DB_SET) do
+        local eliminated = false
+        for ev, det in pairs(detectedEvidence) do
+            if det and not evSet[ev] then eliminated = true; break end
         end
-        if not eliminated then table.insert(possible,name) end
+        if not eliminated then table.insert(possible, name) end
     end
-    if #possible<=1 then return false end
-    local hasIt,notHasIt=false,false
-    for _,gname in ipairs(possible) do
-        local evList=GHOST_DB[gname] or {}
-        local has=false
-        for _,ge in ipairs(evList) do if ge==k then has=true; break end end
-        if has then hasIt=true else notHasIt=true end
+    if #possible <= 1 then return false end
+    local hasIt, notHasIt = false, false
+    for _, gname in ipairs(possible) do
+        if GHOST_DB_SET[gname] and GHOST_DB_SET[gname][k] then
+            hasIt = true
+        else
+            notHasIt = true
+        end
+        if hasIt and notHasIt then return false end
     end
-    if hasIt and notHasIt then return false end
     return true
 end
 
@@ -178,7 +176,17 @@ local function getRemote(path)
 end
 
 local function loadGhostDB()
-    if next(GHOST_DB) then return true end
+    if next(GHOST_DB) then
+        -- Đảm bảo GHOST_DB_SET luôn được build nếu chưa có
+        if not next(GHOST_DB_SET) then
+            for gname, evList in pairs(GHOST_DB) do
+                local s = {}
+                for _, ev in ipairs(evList) do s[ev] = true end
+                GHOST_DB_SET[gname] = s
+            end
+        end
+        return true
+    end
     local done,result=false,nil
     task.spawn(function()
         local ok,res=pcall(function()
@@ -199,6 +207,13 @@ local function loadGhostDB()
         count=count+1
     end
     print("[Blair v7.8] Ghost DB:",count,"ghosts")
+    -- [OPT-3] Build Set lookup cho getPossibleGhosts/shouldSkip/updateGhostFilter
+    GHOST_DB_SET = {}
+    for gname, evList in pairs(GHOST_DB) do
+        local s = {}
+        for _, ev in ipairs(evList) do s[ev] = true end
+        GHOST_DB_SET[gname] = s
+    end
     return count>0
 end
 
@@ -216,22 +231,58 @@ Players.PlayerRemoving:Connect(function(p)
     S.playerNamesCache[p.Name] = nil
 end)
 
+-- [OPT-1] findGhost cache + dirty flag
+local _ghostCache = nil
+local _ghostCacheDirty = true
+workspace.ChildAdded:Connect(function(child)
+    if child:IsA("Model") then _ghostCacheDirty = true end
+end)
+workspace.ChildRemoved:Connect(function(child)
+    if child == _ghostCache then
+        _ghostCache = nil
+        _ghostCacheDirty = true
+    end
+end)
+
 local function findGhost()
-    for _,v in ipairs(workspace:GetChildren()) do
+    if not _ghostCacheDirty and _ghostCache and _ghostCache.Parent == workspace then
+        return _ghostCache
+    end
+    _ghostCacheDirty = false
+    for _, v in ipairs(workspace:GetChildren()) do
         if v:IsA("Model") and not S.playerNamesCache[v.Name]
-        and v.Name~="CloneGhost" and v.Name~="IntroVan"
+        and v.Name ~= "CloneGhost" and v.Name ~= "IntroVan"
         and v:FindFirstChild("Hunting") then
+            _ghostCache = v
             return v
         end
     end
+    _ghostCache = nil
     return nil
 end
 
+-- [OPT-2] isHunting event-driven, O(1)
+local _huntingValue = nil
+local _isHuntingNow = false
+
+local function _hookHuntingValue()
+    local g = findGhost()
+    if not g then _isHuntingNow = false; return end
+    local hv = g:FindFirstChild("Hunting")
+    if not hv then _isHuntingNow = false; return end
+    if _huntingValue == hv then return end
+    _huntingValue = hv
+    _isHuntingNow = hv.Value == true
+    hv:GetPropertyChangedSignal("Value"):Connect(function()
+        _isHuntingNow = hv.Value == true
+    end)
+end
+
 local function isHunting()
-    local g=findGhost()
-    local hv=g and g:FindFirstChild("Hunting")
-    local result = hv and hv.Value==true
-    return result
+    local g = findGhost()
+    local hv = g and g:FindFirstChild("Hunting")
+    if hv ~= _huntingValue then _hookHuntingValue() end
+    return _isHuntingNow
 end
 
 local tweenToPos -- forward declaration
@@ -328,36 +379,75 @@ local function openVanDoor()
     return true
 end
 
--- [v8.3] Lay tam phong (trung binh BaseParts) + raycast tim san trong khong gian phong
--- Tra ve diem dung an toan trong khong khi phong, khong cham vao tuong/do vat
+-- [OPT-6] getSortedRooms cache centers, chỉ rebuild khi Zones đổi
+local _roomsCache = nil
+local _roomsDirty = true
+
 local function getSortedRooms()
-    local rooms = {}
     local Zones = getZones()
-    if not Zones then return rooms end
-    for _, zone in ipairs(Zones:GetChildren()) do
-        local tv = zone:FindFirstChild("_____Temperature")
-        local excl = zone:FindFirstChild("Exclude")
-        if tv and tv:IsA("NumberValue") and not (excl and excl.Value) then
-            local sumPos = Vector3.zero
-            local count = 0
-            local maxY = -math.huge
-            for _, v in ipairs(zone:GetDescendants()) do
-                if v:IsA("BasePart") then
-                    sumPos = sumPos + v.Position
-                    count = count + 1
-                    if v.Position.Y > maxY then maxY = v.Position.Y end
+    if not Zones then return {} end
+
+    if _roomsDirty or not _roomsCache then
+        local rooms = {}
+        for _, zone in ipairs(Zones:GetChildren()) do
+            local tv = zone:FindFirstChild("_____Temperature")
+            local excl = zone:FindFirstChild("Exclude")
+            if tv and tv:IsA("NumberValue") and not (excl and excl.Value) then
+                local sumPos = Vector3.zero
+                local count = 0
+                local minY = math.huge
+                local maxY = -math.huge
+                for _, v in ipairs(zone:GetDescendants()) do
+                    if v:IsA("BasePart") then
+                        local sz = v.Size
+                        -- Chi tinh floor parts: nam gan day zone, face up
+                        local isFloor = sz.X > 1 and sz.Z > 1 and sz.Y < 2
+                        if isFloor then
+                            sumPos = sumPos + v.Position
+                            count = count + 1
+                            if v.Position.Y < minY then minY = v.Position.Y end
+                            if v.Position.Y > maxY then maxY = v.Position.Y end
+                        end
+                    end
+                end
+                -- Fallback: neu khong co floor part thi dung tat ca
+                if count == 0 then
+                    for _, v in ipairs(zone:GetDescendants()) do
+                        if v:IsA("BasePart") then
+                            sumPos = sumPos + v.Position
+                            count = count + 1
+                        end
+                    end
+                end
+                if count > 0 then
+                    local center = sumPos / count
+                    local floorY = minY < math.huge and minY or center.Y
+                    local safe = Vector3.new(center.X, floorY + 2.5, center.Z)
+                    table.insert(rooms, {
+                        name = zone.Name,
+                        temp = tv.Value,
+                        pos = safe,
+                        center = center,
+                        tempRef = tv,
+                    })
                 end
             end
-            if count > 0 then
-                local center = sumPos / count
-                -- Không raycast — dùng center + 3 studs, character tự rơi xuống sàn
-                local safe = Vector3.new(center.X, center.Y + 3, center.Z)
-                table.insert(rooms, {name=zone.Name, temp=tv.Value, pos=safe, center=center})
-            end
         end
+        _roomsCache = rooms
+        _roomsDirty = false
     end
-    table.sort(rooms, function(a,b) return a.temp < b.temp end)
-    return rooms
+
+    -- Sort theo nhiệt độ hiện tại
+    table.sort(_roomsCache, function(a, b)
+        local ta = a.tempRef and a.tempRef.Value or a.temp
+        local tb = b.tempRef and b.tempRef.Value or b.temp
+        return ta < tb
+    end)
+    for _, r in ipairs(_roomsCache) do
+        if r.tempRef then r.temp = r.tempRef.Value end
+    end
+
+    return _roomsCache
 end
 
 tweenToPos = function(dest, label, speed)
@@ -368,6 +458,12 @@ tweenToPos = function(dest, label, speed)
     if not hrp or not hum then return false end
     local dist = (hrp.Position - dest).Magnitude
     if dist < 3 then return true end
+    -- Anticheat: them delay nho truoc khi TP
+    local now = tick()
+    local minDelay = gaussian(0.3, 0.08)
+    if now - lastTPTime < minDelay then
+        task.wait(minDelay - (now - lastTPTime))
+    end
 
     -- [v8.3] TP 1 phat + raycast tim san. Ignore character + Van model.
     local rp = RaycastParams.new()
@@ -424,7 +520,7 @@ local function smartTP(dest, label)
 
     -- Anticheat cooldown
     local now = tick()
-    local cooldown = gaussian(10, 2)
+    local cooldown = gaussian(4, 0.8)
     if now - lastTPTime < cooldown then
         local remaining = cooldown - (now - lastTPTime)
         print(string.format("[smartTP] Cooldown %.1fs — walking instead", remaining))
@@ -491,14 +587,9 @@ local function smartTP(dest, label)
                     local distToWall = math.min(safe_radius, minWall - math.sqrt(x*x + z*z))
                     local score = -distToTarget * 2 + distToWall
 
-                    -- Gaussian offset nhỏ để tránh anticheat
-                    local offsetX = gaussian(0, 1.5)
-                    local offsetZ = gaussian(0, 1.5)
-                    local jittered = landPos + Vector3.new(offsetX, 0, offsetZ)
-
                     if score > bestScore then
                         bestScore = score
-                        bestPoint = jittered
+                        bestPoint = landPos -- luu diem that, jitter sau khi chon
                     end
                 end
             end
@@ -529,8 +620,11 @@ local function smartTP(dest, label)
         return tweenToPos(dest, label, 50)
     end
 
-    -- TP
-    print(string.format("[smartTP] %s → score=%.1f dist=%.0fu", label or "pos", bestScore, (hrp.Position - bestPoint).Magnitude))
+    -- Jitter sau khi chon diem tot nhat (anticheat)
+    local jx = gaussian(0, 0.8)
+    local jz = gaussian(0, 0.8)
+    bestPoint = bestPoint + Vector3.new(jx, 0, jz)
+    print(string.format("[smartTP] %s -> score=%.1f dist=%.0fu", label or "pos", bestScore, (hrp.Position - bestPoint).Magnitude))
     hrp.CFrame = CFrame.new(bestPoint)
     hrp.AssemblyLinearVelocity = Vector3.zero
     hrp.AssemblyAngularVelocity = Vector3.zero
@@ -799,17 +893,18 @@ local function setFarmStatus(text,col)
     print("[Farm]",text)
 end
 
-local function waitHuntOver(returnPos,returnLabel)
+local function waitHuntOver(returnPos, returnLabel)
     if not isHunting() then return end
-    setFarmStatus("HUNT! Fleeing outside...",C.HuntRed)
-    moveToPos(getOutsidePos(),"outside")
-        local huntDeadline = tick() + 120
-    while isHunting() and _G.BlairHub and Config.AutoFarm and tick() < huntDeadline do
-        task.wait(0.5)
+    setFarmStatus("HUNT! Fleeing outside...", C.HuntRed)
+    moveToPos(getOutsidePos(), "outside")
+    local huntDeadline = tick() + 120
+    -- [OPT-7] dùng _isHuntingNow (updated bởi Changed event OPT-2), poll 0.2s
+    while _isHuntingNow and _G.BlairHub and Config.AutoFarm and tick() < huntDeadline do
+        task.wait(0.2)
     end
     task.wait(1)
-    setFarmStatus("Hunt over — returning...",C.Green)
-    if returnPos then moveToPos(returnPos,returnLabel or "room") end
+    setFarmStatus("Hunt over — returning...", C.Green)
+    if returnPos then moveToPos(returnPos, returnLabel or "room") end
 end
 
 local function safewait(t)
@@ -818,39 +913,31 @@ local function safewait(t)
 end
 
 local function updateGhostFilter()
-    local possible,total=0,0
-    for name,evidences in pairs(GHOST_DB) do
-        total=total+1
-        local eliminated=false
-        for ev,det in pairs(detectedEvidence) do
-            if det then
-                local has=false
-                for _,ge in ipairs(evidences) do if ge==ev then has=true; break end end
-                if not has then eliminated=true; break end
-            end
+    local possible, total = 0, 0
+    for name, evSet in pairs(GHOST_DB_SET) do
+        total = total + 1
+        local eliminated = false
+        for ev, det in pairs(detectedEvidence) do
+            if det and not evSet[ev] then eliminated = true; break end
         end
         if not eliminated then
-            for ev,absent in pairs(S.evidenceConfirmedAbsent) do
-                if absent then
-                    local has=false
-                    for _,ge in ipairs(evidences) do if ge==ev then has=true; break end end
-                    if has then eliminated=true; break end
-                end
+            for ev, absent in pairs(S.evidenceConfirmedAbsent) do
+                if absent and evSet[ev] then eliminated = true; break end
             end
         end
-        local cell=ghostCells[name]
+        local cell = ghostCells[name]
         if cell then
-            local on=not eliminated
-            TweenService:Create(cell.frame,TweenInfo.new(0.2),{
-                BackgroundColor3=on and Color3.fromRGB(28,14,50) or Color3.fromRGB(12,11,18)
+            local on = not eliminated
+            TweenService:Create(cell.frame, TweenInfo.new(0.2), {
+                BackgroundColor3 = on and Color3.fromRGB(28,14,50) or Color3.fromRGB(12,11,18)
             }):Play()
-            cell.label.TextColor3=on and C.Purple or Color3.fromRGB(42,38,55)
-            if on then possible=possible+1 end
+            cell.label.TextColor3 = on and C.Purple or Color3.fromRGB(42,38,55)
+            if on then possible = possible + 1 end
         end
     end
     if S.ghostCountLbl then
-        S.ghostCountLbl.Text=possible.." / "..tostring(total).." ghosts possible"
-        S.ghostCountLbl.TextColor3=possible<=3 and C.Yellow or Color3.fromRGB(130,110,170)
+        S.ghostCountLbl.Text = possible.." / "..tostring(total).." ghosts possible"
+        S.ghostCountLbl.TextColor3 = possible <= 3 and C.Yellow or Color3.fromRGB(130,110,170)
     end
     return possible
 end
@@ -878,26 +965,18 @@ local function resetEvidence()
 end
 
 local function getPossibleGhosts()
-    local possible={}
-    for name,evidences in pairs(GHOST_DB) do
-        local eliminated=false
-        for ev,det in pairs(detectedEvidence) do
-            if det then
-                local has=false
-                for _,ge in ipairs(evidences) do if ge==ev then has=true; break end end
-                if not has then eliminated=true; break end
-            end
+    local possible = {}
+    for name, evSet in pairs(GHOST_DB_SET) do
+        local eliminated = false
+        for ev, det in pairs(detectedEvidence) do
+            if det and not evSet[ev] then eliminated = true; break end
         end
         if not eliminated then
-            for ev,absent in pairs(S.evidenceConfirmedAbsent) do
-                if absent then
-                    local has=false
-                    for _,ge in ipairs(evidences) do if ge==ev then has=true; break end end
-                    if has then eliminated=true; break end
-                end
+            for ev, absent in pairs(S.evidenceConfirmedAbsent) do
+                if absent and evSet[ev] then eliminated = true; break end
             end
         end
-        if not eliminated then table.insert(possible,name) end
+        if not eliminated then table.insert(possible, name) end
     end
     table.sort(possible)
     return possible
@@ -978,33 +1057,41 @@ local function startPassiveDetection(Map)
         end))
     end
 
+    -- [OPT-10] watchOrbs hook cả trường hợp folder Orbs tạo muộn
     local function watchOrbs()
-        local Orbs=Map:FindFirstChild("Orbs")
-        if Orbs then
-            if #Orbs:GetChildren()>0 then setEvidence("ORB",true) end
-            conn(Orbs.ChildAdded:Connect(function() setEvidence("ORB",true) end))
+        local function hookOrbs(orbs)
+            if #orbs:GetChildren() > 0 then setEvidence("ORB", true) end
+            conn(orbs.ChildAdded:Connect(function() setEvidence("ORB", true) end))
         end
+        local Orbs = Map:FindFirstChild("Orbs")
+        if Orbs then hookOrbs(Orbs) end
+        conn(Map.ChildAdded:Connect(function(c)
+            if c.Name == "Orbs" then hookOrbs(c) end
+        end))
     end
 
+    -- [OPT-4] watchFreeze event-driven, không poll 0.3s
     local function watchFreeze()
-        task.spawn(function()
-            local stable=0
-            while _G.BlairHub and Map.Parent do
-                pcall(function()
-                    if not Zones then return end
-                    local coldest=100
-                    for _,zone in ipairs(Zones:GetChildren()) do
-                        local tv=zone:FindFirstChild("_____Temperature")
-                        if tv and tv.Value<coldest then coldest=tv.Value end
-                    end
-                    if coldest<0 then
-                        stable=stable+1
-                        if stable>=3 then setEvidence("FREEZE",true) end
-                    else stable=0 end
-                end)
-                task.wait(0.3)
+        if not Zones then return end
+        local stableCount = 0
+        local function checkTemp(val)
+            if val < 0 then
+                stableCount = stableCount + 1
+                if stableCount >= 3 then setEvidence("FREEZE", true) end
+            else
+                stableCount = math.max(0, stableCount - 1)
             end
-        end)
+        end
+        local function hookZone(zone)
+            local tv = zone:FindFirstChild("_____Temperature")
+            if not tv then return end
+            checkTemp(tv.Value)
+            conn(tv:GetPropertyChangedSignal("Value"):Connect(function()
+                checkTemp(tv.Value)
+            end))
+        end
+        for _, zone in ipairs(Zones:GetChildren()) do hookZone(zone) end
+        conn(Zones.ChildAdded:Connect(hookZone))
     end
 
     local function watchEMF(parent)
@@ -1106,30 +1193,37 @@ local function startPassiveDetection(Map)
         end)
     end
 
+    -- [OPT-5] watchRoomDisplay event-driven, không poll 0.5s
     local function watchRoomDisplay()
-        task.spawn(function()
-            while _G.BlairHub and Map.Parent do
-                pcall(function()
-                    if not Zones or not S.ghostRoomLbl then return end
-                    local coldName,coldTemp="?",100
-                    for _,zone in ipairs(Zones:GetChildren()) do
-                        local tv=zone:FindFirstChild("_____Temperature")
-                        local excl=zone:FindFirstChild("Exclude")
-                        if tv and tv.Value<coldTemp and not(excl and excl.Value) then
-                            coldTemp=tv.Value; coldName=zone.Name
-                        end
-                    end
-                    if coldTemp<18 then
-                        S.ghostRoomLbl.Text=coldName.."  ("..math.floor(coldTemp*10)/10 .." C)"
-                        S.ghostRoomLbl.TextColor3=coldTemp<3 and C.ColdBlue or C.ColdLight
-                    else
-                        S.ghostRoomLbl.Text="detecting..."
-                        S.ghostRoomLbl.TextColor3=Color3.fromRGB(85,82,115)
-                    end
-                end)
-                task.wait(0.5)
+        if not Zones or not S.ghostRoomLbl then return end
+        local function refresh()
+            if not S.ghostRoomLbl then return end
+            local coldName, coldTemp = "?", 100
+            for _, zone in ipairs(Zones:GetChildren()) do
+                local tv = zone:FindFirstChild("_____Temperature")
+                local excl = zone:FindFirstChild("Exclude")
+                if tv and tv.Value < coldTemp and not (excl and excl.Value) then
+                    coldTemp = tv.Value
+                    coldName = zone.Name
+                end
             end
-        end)
+            if coldTemp < 18 then
+                S.ghostRoomLbl.Text = coldName.."  ("..math.floor(coldTemp*10)/10 .." C)"
+                S.ghostRoomLbl.TextColor3 = coldTemp < 3 and C.ColdBlue or C.ColdLight
+            else
+                S.ghostRoomLbl.Text = "detecting..."
+                S.ghostRoomLbl.TextColor3 = Color3.fromRGB(85, 82, 115)
+            end
+        end
+        local function hookZone(zone)
+            local tv = zone:FindFirstChild("_____Temperature")
+            if tv then
+                conn(tv:GetPropertyChangedSignal("Value"):Connect(refresh))
+            end
+        end
+        for _, zone in ipairs(Zones:GetChildren()) do hookZone(zone) end
+        conn(Zones.ChildAdded:Connect(hookZone))
+        refresh()
     end
 
     watchPrints(); watchOrbs(); watchFreeze()
@@ -1150,6 +1244,8 @@ task.spawn(function()
     workspace.ChildAdded:Connect(function(child)
         if child.Name~="Map" or not _G.BlairHub then return end
         S.vanDoorOpened=false -- reset khi vào map mới
+        _ghostCache = nil; _ghostCacheDirty = true  -- [OPT-1] reset ghost cache
+        _roomsCache = nil; _roomsDirty = true       -- [OPT-6] reset rooms cache
         task.wait(1.5)
         clearDetectionConns(); resetEvidence()
         refreshPlayerNames()
@@ -1159,6 +1255,8 @@ task.spawn(function()
         if child.Name~="Map" then return end
         clearDetectionConns(); resetEvidence()
         S.vanDoorOpened=false
+        _ghostCache = nil; _ghostCacheDirty = true
+        _roomsCache = nil; _roomsDirty = true
     end)
 end)
 
@@ -1178,6 +1276,7 @@ S.C = C
 S.EV_MAP = EV_MAP
 S.EVIDENCE_INFO = EVIDENCE_INFO
 S.GHOST_DB = GHOST_DB
+S.GHOST_DB_SET = GHOST_DB_SET
 S.saveConfig = saveConfig
 S.loadConfig = loadConfig
 S.Config = Config
@@ -1241,4 +1340,4 @@ S.conn = conn
 S.submitGuess = submitGuess
 S.goToVan = goToVan
 S.startPassiveDetection = startPassiveDetection
-return S    
+return S

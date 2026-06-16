@@ -403,54 +403,53 @@ local function checkSBox(roomPos,roomName)
         local anchor=g and g:FindFirstChildWhichIsA("BasePart")
         if hrp and anchor then
             local dist=(hrp.Position-anchor.Position).Magnitude
-            if dist>14 then
-                moveToPos(anchor.Position+Vector3.new(math.random(-4,4),0,math.random(-4,4)),"approach ghost")
+            if dist > 8 then
+                moveToPos(anchor.Position + Vector3.new(math.random(-3,3), 0, math.random(-3,3)), "approach ghost")
                 task.wait(0.3)
                 if not ensureSBox() then return false end
-                eq=getEquipped("Spirit Box")
-                aq=eq and eq:FindFirstChild("AskQuestion")
+                eq = getEquipped("Spirit Box")
+                aq = eq and eq:FindFirstChild("AskQuestion")
                 if not aq then return false end
             end
         end
 
-        local gotError=false
-        local errorConn=nil
-        local sboxErr=eq:FindFirstChild("SpiritBoxError")
+        -- [FIX] Chỉ dùng GhostTalk sound để detect — SpiritBoxError = ghost KHÔNG respond
+        -- không dùng "not gotError" làm điều kiện positive nữa (false positive khi lag)
+        local gotError = false
+        local errorConn = nil
+        local sboxErr = eq:FindFirstChild("SpiritBoxError")
         if sboxErr and sboxErr:IsA("RemoteEvent") then
-            errorConn=sboxErr.OnClientEvent:Connect(function() gotError=true end)
-        else
-            print("[SBox] Warning: SpiritBoxError not found, using sound only")
-            pcall(function() aq:FireServer(btn) end)
-            local ws=tick()
-            while tick()-ws<2.2 and not detected do task.wait(0.08) end
-            return detected
+            errorConn = sboxErr.OnClientEvent:Connect(function()
+                gotError = true
+            end)
         end
 
         pcall(function() aq:FireServer(btn) end)
-        print("[SBox] Asked:",btn)
+        print("[SBox] Asked:", btn)
 
-        local waitStart=tick()
-        while tick()-waitStart<2.2 and not gotError and not detected do
+        -- Chờ tối đa 2.5s: nếu detected (sound) thì true, còn lại false
+        local waitStart = tick()
+        while tick() - waitStart < 2.5 and not detected do
+            if gotError then break end  -- server xác nhận miss → thoát sớm
             task.wait(0.08)
         end
         if errorConn then pcall(function() errorConn:Disconnect() end) end
 
-        if detected then return true end
-        if not gotError then
-            print("[SBox] No SpiritBoxError → ghost responded!")
+        if detected then
+            print("[SBox] GhostTalk sound detected → respond!")
             return true
         end
-        print("[SBox] SpiritBoxError received → no response")
+        print("[SBox] No sound →", gotError and "SpiritBoxError confirmed miss" or "timeout")
         return false
     end
 
-    local myToken={}
-    S.sboxToken=myToken
-    setFarmStatus("Spirit Box: asking ghost...",C.FlyBlue)
+    local myToken = {}
+    S.sboxToken = myToken
+    setFarmStatus("Spirit Box: asking ghost...", C.FlyBlue)
 
-    local deadline=tick()+32
-    local reequipTimer=tick()
-    local askCount=0
+    local deadline = tick() + 40  -- tăng từ 32 lên 40s
+    local reequipTimer = tick()
+    local askCount = 0
 
     while tick()<deadline and not detected and _G.BlairHub and Config.AutoFarm do
         if S.sboxToken~=myToken then break end
@@ -778,7 +777,220 @@ local function objTrailCamera(deadline)
     return true -- đã đặt, phần trigger là passive
 end
 
--- Dispatch theo nội dung objective
+-- ============================================================================
+-- [NEW] objCandle — equip Lighter, vào ghost room, bật lên, đứng chờ ghost thổi
+-- Update March 2026: Lighter bị ghost thổi tắt = trigger candle objective
+-- ============================================================================
+local function objCandle(deadline)
+    -- Lighter là starter tool, luôn có sẵn trong Items
+    if not (hasInInventory("Lighter") or getEquipped("Lighter")) then
+        if not bringTool("Lighter") then return false end
+    end
+    if not equipTool("Lighter") then return false end
+    task.wait(0.3)
+
+    -- Bật lighter lên
+    local eq = getEquipped("Lighter")
+    pcall(function()
+        local r = eq and eq:FindFirstChild("LighterRemote")
+        if r then r:FireServer(true) end
+    end)
+    -- Fallback: fire ProximityPrompt để toggle on
+    if eq then firePromptsOf(eq) end
+    task.wait(0.2)
+
+    -- Đi vào ghost room (lạnh nhất = ghost room)
+    local rooms = getSortedRooms()
+    if #rooms > 0 then
+        moveToPos(rooms[1].pos, "ghost room candle")
+        task.wait(0.5)
+    end
+
+    -- Hook blown-out event
+    local blown = false
+    pcall(function()
+        local bind = RS:FindFirstChild("Bindables")
+        if bind then
+            local bc = bind:FindFirstChild("CandleBlow") or bind:FindFirstChild("LighterBlow")
+            if bc then
+                conn(bc.Event:Connect(function() blown = true end))
+            end
+        end
+    end)
+    -- Fallback: watch lighter IsLit value
+    local isLitConn = nil
+    pcall(function()
+        local lit = eq and eq:FindFirstChild("IsLit")
+        if lit then
+            isLitConn = lit:GetPropertyChangedSignal("Value"):Connect(function()
+                if not lit.Value then blown = true end
+            end)
+        end
+    end)
+
+    setFarmStatus("Candle: waiting for ghost to blow out...", C.Orange)
+    while tick() < deadline and not blown and _G.BlairHub and Config.AutoFarm do
+        if isHunting() then
+            waitHuntOver(rooms[1] and rooms[1].pos, "ghost room")
+            -- Re-equip và bật lại lighter sau hunt
+            if not equipTool("Lighter") then break end
+            eq = getEquipped("Lighter")
+            pcall(function()
+                local r = eq and eq:FindFirstChild("LighterRemote")
+                if r then r:FireServer(true) end
+            end)
+        end
+        -- Re-equip nếu bị unequip
+        if not getEquipped("Lighter") then
+            if not equipTool("Lighter") then break end
+            eq = getEquipped("Lighter")
+        end
+        task.wait(0.5)
+    end
+
+    if isLitConn then pcall(function() isLitConn:Disconnect() end) end
+    return blown
+end
+
+-- [NEW] objCrucifix — đặt crucifix trong ghost room, chờ ghost burn nó
+local function objCrucifix(deadline)
+    if not (hasInInventory("Crucifix") or getEquipped("Crucifix")) then
+        if not bringTool("Crucifix") then return false end
+    end
+    if not equipTool("Crucifix") then return false end
+    task.wait(0.3)
+
+    -- Drop crucifix vào ghost room
+    local rooms = getSortedRooms()
+    if #rooms > 0 then
+        moveToPos(rooms[1].pos, "ghost room crucifix")
+        task.wait(0.4)
+    end
+    -- Drop xuống sàn
+    pcall(function()
+        local r = getInvRemote()
+        if r then r:FireServer("Drop") end
+    end)
+    task.wait(0.3)
+
+    -- Watch crucifix burned event
+    local burned = false
+    local Items2 = getItems()
+    local function watchCrucifix(parent)
+        if not parent then return end
+        local cr = parent:FindFirstChild("Crucifix")
+        if not cr then return end
+        local used = cr:FindFirstChild("Used") or cr:FindFirstChild("IsBurned")
+        if used then
+            conn(used:GetPropertyChangedSignal("Value"):Connect(function()
+                if used.Value then burned = true end
+            end))
+        end
+    end
+    watchCrucifix(Items2)
+
+    setFarmStatus("Crucifix: waiting for ghost to burn...", C.Orange)
+    while tick() < deadline and not burned and _G.BlairHub and Config.AutoFarm do
+        if isHunting() then waitHuntOver(rooms[1] and rooms[1].pos, "ghost room") end
+        -- Re-check Items nếu crucifix vừa drop
+        if not burned then
+            local it = getItems()
+            local cr = it and it:FindFirstChild("Crucifix")
+            local used = cr and (cr:FindFirstChild("Used") or cr:FindFirstChild("IsBurned"))
+            if used and used.Value then burned = true end
+        end
+        task.wait(0.5)
+    end
+    return burned
+end
+
+-- [NEW] objGhostEvent — chỉ cần đứng gần ghost room chờ event xảy ra tự nhiên
+local function objGhostEvent(deadline)
+    local rooms = getSortedRooms()
+    if #rooms > 0 then
+        moveToPos(rooms[1].pos, "ghost room event")
+        task.wait(0.5)
+    end
+    -- Event xảy ra tự nhiên, HasCompleted sẽ tự flip
+    -- Đứng chờ tối đa deadline, nếu hunt thì chạy ra ngoài rồi về
+    setFarmStatus("Ghost Event: waiting...", C.Orange)
+    local waited = 0
+    while tick() < deadline and _G.BlairHub and Config.AutoFarm do
+        if isHunting() then waitHuntOver(rooms[1] and rooms[1].pos, "ghost room") end
+        task.wait(1)
+        waited = waited + 1
+        if waited > 20 then break end  -- chờ tối đa 20s rồi skip
+    end
+    return true  -- luôn return true, HasCompleted check bên ngoài
+end
+
+-- [NEW] objSurviveHunt — chỉ cần sống sót qua 1 hunt
+local function objSurviveHunt(deadline)
+    setFarmStatus("Survive hunt: waiting for hunt...", C.HuntRed)
+    -- Nếu đang hunt rồi thì waitHuntOver là xong
+    if isHunting() then
+        local rooms = getSortedRooms()
+        waitHuntOver(rooms[1] and rooms[1].pos, "ghost room")
+        return true
+    end
+    -- Chờ hunt xảy ra tự nhiên (tối đa deadline)
+    while tick() < deadline and _G.BlairHub and Config.AutoFarm do
+        if isHunting() then
+            local rooms = getSortedRooms()
+            waitHuntOver(rooms[1] and rooms[1].pos, "ghost room")
+            return true
+        end
+        task.wait(1)
+    end
+    return false
+end
+
+-- [NEW] objParabolic — equip Parabolic Mic, đứng gần ghost, đợi whisper
+local function objParabolic(deadline)
+    if not (hasInInventory("Parabolic Microphone") or getEquipped("Parabolic Microphone")) then
+        if not bringTool("Parabolic Microphone") then return false end
+    end
+    if not equipTool("Parabolic Microphone") then return false end
+    task.wait(0.3)
+
+    local rooms = getSortedRooms()
+    if #rooms > 0 then
+        moveToPos(rooms[1].pos, "ghost room parabolic")
+        task.wait(0.4)
+    end
+
+    local whispered = false
+    pcall(function()
+        local eq = getEquipped("Parabolic Microphone")
+        if not eq then return end
+        local function hookSound(s)
+            if not s:IsA("Sound") then return end
+            conn(s:GetPropertyChangedSignal("Playing"):Connect(function()
+                if s.Playing then whispered = true end
+            end))
+        end
+        for _, s in ipairs(eq:GetDescendants()) do hookSound(s) end
+        conn(eq.DescendantAdded:Connect(hookSound))
+    end)
+
+    setFarmStatus("Parabolic: waiting for ghost whisper...", C.Orange)
+    while tick() < deadline and not whispered and _G.BlairHub and Config.AutoFarm do
+        if isHunting() then waitHuntOver(rooms[1] and rooms[1].pos, "ghost room") end
+        task.wait(0.5)
+    end
+    return whispered
+end
+
+-- [NEW] objEMFReader — fire EMFRemote và chờ EMF5, reuse logic checkEMF
+local function objEMFReader(deadline)
+    -- Nếu đã detect EMF5 rồi thì objective này coi như done
+    if detectedEvidence["EMF5"] then return true end
+    local rooms = getSortedRooms()
+    local pos = rooms[1] and rooms[1].pos
+    local name = rooms[1] and rooms[1].name or "ghost room"
+    checkEMF(pos, name)
+    return detectedEvidence["EMF5"]
+end
 local function runObjectiveHandler(objName)
     local n = objName:lower()
         local deadline = tick() + 60
