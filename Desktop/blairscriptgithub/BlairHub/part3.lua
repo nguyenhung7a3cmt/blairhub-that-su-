@@ -1357,56 +1357,7 @@ makeButton("Photo Suspects", "chụp ảnh cursed + ghost + boo-boo", 36, Color3
         setFarmStatus("Chụp xong tất cả vật khả nghi!", C.Green)
     end)
 end)
-    task.spawn(function()
-        local char = getChar()
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp then setFarmStatus("No character", C.Red); return end
-
-        -- Quet tat ca nguon co the chua cursed item, chon cai gan nhat
-        local best, bestPart, bestDist = nil, nil, math.huge
-        local function consider(obj)
-            if not obj or not isCursedItem(obj) then return end
-            local bp = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart")
-            if not bp then return end
-            local d = (bp.Position - hrp.Position).Magnitude
-            if d < bestDist then bestDist = d; best = obj; bestPart = bp end
-        end
-
-        local Map = getMap()
-        -- Ưu tiên CursedSpawns trước (đây là cursed item thật trên map)
-        if Map then
-            local cs = Map:FindFirstChild("CursedSpawns")
-            if cs then
-                for _, v in ipairs(cs:GetChildren()) do
-                    local bp = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart")
-                    if bp then
-                        local d = (bp.Position - hrp.Position).Magnitude
-                        if d < bestDist then bestDist = d; best = v; bestPart = bp end
-                    end
-                end
-            end
-            -- Chỉ scan Items nếu không tìm thấy gì trong CursedSpawns
-            if not best then
-                local items = Map:FindFirstChild("Items")
-                if items then
-                    for _, v in ipairs(items:GetChildren()) do consider(v) end
-                end
-            end
-        end
-        -- Boo-Boo Doll ở workspace top-level
-        if not best then
-            for _, v in ipairs(workspace:GetChildren()) do
-                if (v:IsA("Model") or v:IsA("Tool")) and isBooBoo(v) then
-                    consider(v)
-                end
-            end
-        end
-
-        if not bestPart then setFarmStatus("No cursed item found", C.Orange); return end
-        setFarmStatus("TP to cursed: " .. best.Name .. string.format(" (%.0fu)", bestDist), C.FlyPurple)
-        tweenToPos(bestPart.Position + Vector3.new(0, 0, 2), "cursed", 50)
-    end)
-end)
+makeButton("Auto Quest",
 makeButton("Auto Quest", "tự động làm tất cả objectives", 35, Color3.fromRGB(50,30,80), function()
     task.spawn(function()
         if doAllQuests then
