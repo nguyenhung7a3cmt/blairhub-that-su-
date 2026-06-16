@@ -1,4 +1,4 @@
-﻿-- BlairHub split chunk
+-- BlairHub split chunk
 local S = (...) or {}
 local RS = S.RS
 local C = S.C
@@ -40,6 +40,7 @@ local getPossibleGhosts = S.getPossibleGhosts
 local getBestGuess = S.getBestGuess
 local submitGuess = S.submitGuess
 local goToVan = S.goToVan
+local isObjectiveDoneText = S.isObjectiveDoneText
 
 local function checkEMF(roomPos,roomName)
     if detectedEvidence["EMF5"] then return end
@@ -159,7 +160,15 @@ local function checkWriting(roomPos,roomName)
         eq=getEquipped("Ghost Writing Book")
         if eq then
             local w=eq:FindFirstChild("Written")
-            if w and w.Value then
+            local wrote = w and w.Value
+            if not wrote then
+                for _, d in ipairs(eq:GetDescendants()) do
+                    if d:IsA("BoolValue") and (d.Name:lower():find("writ") or d.Name:lower():find("sign")) and d.Value then wrote = true break end
+                    if d:IsA("StringValue") and (d.Name:lower():find("text") or d.Name:lower():find("page")) and tostring(d.Value) ~= "" then wrote = true break end
+                    if (d:IsA("Decal") or d:IsA("Texture")) and tostring(d.Texture or "") ~= "" then wrote = true break end
+                end
+            end
+            if wrote then
                 setEvidence("WRITING",true)
                 setFarmStatus("WRITING DETECTED!",C.Orange)
                 returnTool("Ghost Writing Book"); return
@@ -170,7 +179,15 @@ local function checkWriting(roomPos,roomName)
             local book=Items2:FindFirstChild("Ghost Writing Book")
             if book then
                 local w=book:FindFirstChild("Written")
-                if w and w.Value then
+                local wrote = w and w.Value
+                if not wrote then
+                    for _, d in ipairs(book:GetDescendants()) do
+                        if d:IsA("BoolValue") and (d.Name:lower():find("writ") or d.Name:lower():find("sign")) and d.Value then wrote = true break end
+                        if d:IsA("StringValue") and (d.Name:lower():find("text") or d.Name:lower():find("page")) and tostring(d.Value) ~= "" then wrote = true break end
+                        if (d:IsA("Decal") or d:IsA("Texture")) and tostring(d.Texture or "") ~= "" then wrote = true break end
+                    end
+                end
+                if wrote then
                     setEvidence("WRITING",true)
                     setFarmStatus("WRITING DETECTED (floor)!",C.Orange)
                     returnTool("Ghost Writing Book"); return
@@ -594,6 +611,8 @@ local function objThermometer(deadline)
         local t2 = items and items:FindFirstChild("Thermometer")
         local frz2 = t2 and t2:FindFirstChild("IsFreezing")
         if frz2 and frz2.Value then return true end
+        local rooms2 = getSortedRooms()
+        if rooms2[1] and tonumber(rooms2[1].temp) and tonumber(rooms2[1].temp) <= 0 then return true end
         task.wait(0.3)
     end
     return false
@@ -1092,8 +1111,8 @@ local function doAllQuests()
             if ok and res ~= nil then handled = true end
             if handled then
                 local wd = tick() + 12
-                while tick() < wd and not entry.done.Value and _G.BlairHub do task.wait(0.1) end
-                if entry.done.Value then done = done + 1 else skipped = skipped + 1 end
+                while tick() < wd and not entry.done.Value and not (isObjectiveDoneText and isObjectiveDoneText(entry.text)) and _G.BlairHub do task.wait(0.1) end
+                if entry.done.Value or (isObjectiveDoneText and isObjectiveDoneText(entry.text)) then done = done + 1 else skipped = skipped + 1 end
             else
                 skipped = skipped + 1
             end

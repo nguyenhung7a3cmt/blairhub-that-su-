@@ -100,6 +100,35 @@ local MISS_SKIP         = 3
 S.sboxToken = {}
 
 S.evidenceConfirmedAbsent = {}
+local objectiveDoneTextCache = {}
+local function normObjectiveText(s)
+    s = tostring(s or "")
+    s = s:gsub("^%s*%d+%.%s*", "")
+    s = s:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+    return s:lower()
+end
+local function markObjectiveDoneText(txt)
+    local k = normObjectiveText(txt)
+    if k ~= "" then objectiveDoneTextCache[k] = true end
+end
+local function isObjectiveDoneText(txt)
+    local k = normObjectiveText(txt)
+    return k ~= "" and objectiveDoneTextCache[k] == true
+end
+pcall(function()
+    local rem = RS:FindFirstChild("Remotes")
+    local objDone = rem and rem:FindFirstChild("ObjectiveCompleteClient")
+    if objDone and objDone:IsA("RemoteEvent") then
+        objDone.OnClientEvent:Connect(function(...)
+            local args = {...}
+            local txt = args[1]
+            if type(txt) == "string" then
+                markObjectiveDoneText(txt)
+                print("[ObjHook] done:", txt)
+            end
+        end)
+    end
+end)
 local function recordMiss(k) S.evidenceMissCount[k]=(S.evidenceMissCount[k] or 0)+1 end
 local function resetMissCounts() S.evidenceMissCount={}; S.evidenceConfirmedAbsent={} end
 local function markAbsent(k) S.evidenceConfirmedAbsent[k]=true end
@@ -1076,11 +1105,13 @@ local function startPassiveDetection(Map)
         if not Zones then return end
         local stableCount = 0
         local function checkTemp(val)
-            if val < 0 then
+            val = tonumber(val)
+            if not val then return end
+            if val <= 0 then
                 stableCount = stableCount + 1
-                if stableCount >= 3 then setEvidence("FREEZE", true) end
+                if stableCount >= 2 then setEvidence("FREEZE", true) end
             else
-                stableCount = math.max(0, stableCount - 1)
+                stableCount = 0
             end
         end
         local function hookZone(zone)
@@ -1121,14 +1152,36 @@ local function startPassiveDetection(Map)
     local function watchWriting(parent)
         if not parent then return end
         pcall(function()
-            local tool=parent:FindFirstChild("Ghost Writing Book")
-            if tool then
-                local w=tool:FindFirstChild("Written")
-                if w then
-                    if w.Value then setEvidence("WRITING",true) end
-                    conn(w.Changed:Connect(function(v) if v then setEvidence("WRITING",true) end end))
+            local function probeBook(tool)
+                if not tool or tool.Name ~= "Ghost Writing Book" then return end
+                local w = tool:FindFirstChild("Written")
+                if w and w.Value then setEvidence("WRITING",true) return end
+                for _, d in ipairs(tool:GetDescendants()) do
+                    if d:IsA("BoolValue") and (d.Name:lower():find("writ") or d.Name:lower():find("sign")) and d.Value then
+                        setEvidence("WRITING",true) return
+                    elseif d:IsA("StringValue") and (d.Name:lower():find("text") or d.Name:lower():find("page")) and tostring(d.Value) ~= "" then
+                        setEvidence("WRITING",true) return
+                    elseif (d:IsA("Decal") or d:IsA("Texture")) and tostring(d.Texture or "") ~= "" then
+                        setEvidence("WRITING",true) return
+                    end
                 end
             end
+            local tool=parent:FindFirstChild("Ghost Writing Book")
+            if tool then
+                probeBook(tool)
+                local w=tool:FindFirstChild("Written")
+                if w then conn(w.Changed:Connect(function(v) if v then setEvidence("WRITING",true) end end)) end
+                conn(tool.DescendantAdded:Connect(function() probeBook(tool) end))
+            end
+            conn(parent.ChildAdded:Connect(function(child)
+                if child.Name == "Ghost Writing Book" then
+                    task.wait(0.2)
+                    probeBook(child)
+                    local w=child:FindFirstChild("Written")
+                    if w then conn(w.Changed:Connect(function(v) if v then setEvidence("WRITING",true) end end)) end
+                    conn(child.DescendantAdded:Connect(function() probeBook(child) end))
+                end
+            end))
         end)
     end
 
@@ -1342,3 +1395,6 @@ S.submitGuess = submitGuess
 S.goToVan = goToVan
 S.startPassiveDetection = startPassiveDetection
 return S
+
+S.markObjectiveDoneText = markObjectiveDoneText
+S.isObjectiveDoneText = isObjectiveDoneText

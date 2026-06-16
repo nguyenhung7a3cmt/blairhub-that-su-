@@ -381,6 +381,10 @@ local fly = { conn = nil, bv = nil, bg = nil, speed = 40 }
 local _flyHookActive = false
 local _hrpHooked = false
 local disableGhostMode -- forward
+local function isTypingInTextBox()
+    local tb = UIS:GetFocusedTextBox()
+    return tb ~= nil
+end
 local disableFly -- forward
 
 local function hookHRP()
@@ -470,14 +474,16 @@ local function enableFly()
                 if not hrpNow or not bvNow or not cam then return end
                 local move = Vector3.zero
                 local spd = fly.speed
-                if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then spd = spd * 2 end
-                local camCF = cam.CFrame
-                if UIS:IsKeyDown(Enum.KeyCode.W) then move += camCF.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.S) then move -= camCF.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.A) then move -= camCF.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.D) then move += camCF.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-                if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
+                if not isTypingInTextBox() then
+                    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then spd = spd * 2 end
+                    local camCF = cam.CFrame
+                    if UIS:IsKeyDown(Enum.KeyCode.W) then move += camCF.LookVector end
+                    if UIS:IsKeyDown(Enum.KeyCode.S) then move -= camCF.LookVector end
+                    if UIS:IsKeyDown(Enum.KeyCode.A) then move -= camCF.RightVector end
+                    if UIS:IsKeyDown(Enum.KeyCode.D) then move += camCF.RightVector end
+                    if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
+                    if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
+                end
                 if move.Magnitude > 0 then bvNow.Velocity = move.Unit * spd else bvNow.Velocity = Vector3.zero end
                 if bgNow then bgNow.CFrame = hrpNow.CFrame end
             end)
@@ -885,14 +891,16 @@ local function enableGhostMode()
             -- WASD
             local move = Vector3.zero
             local spd  = gcam.speed * dt * 60
-            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then spd = spd * 3 end
-            local rotCF = CFrame.new(gcam.pos) * CFrame.Angles(0, gcam.yaw, 0) * CFrame.Angles(gcam.pitch, 0, 0)
-            if UIS:IsKeyDown(Enum.KeyCode.W)           then move = move + rotCF.LookVector  end
-            if UIS:IsKeyDown(Enum.KeyCode.S)           then move = move - rotCF.LookVector  end
-            if UIS:IsKeyDown(Enum.KeyCode.A)           then move = move - rotCF.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D)           then move = move + rotCF.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.Space)       then move = move + Vector3.new(0,1,0) end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0,1,0) end
+            if not isTypingInTextBox() then
+                if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then spd = spd * 3 end
+                local rotCF = CFrame.new(gcam.pos) * CFrame.Angles(0, gcam.yaw, 0) * CFrame.Angles(gcam.pitch, 0, 0)
+                if UIS:IsKeyDown(Enum.KeyCode.W)           then move = move + rotCF.LookVector  end
+                if UIS:IsKeyDown(Enum.KeyCode.S)           then move = move - rotCF.LookVector  end
+                if UIS:IsKeyDown(Enum.KeyCode.A)           then move = move - rotCF.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.D)           then move = move + rotCF.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.Space)       then move = move + Vector3.new(0,1,0) end
+                if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0,1,0) end
+            end
             if move.Magnitude > 0 then
                 gcam.pos = gcam.pos + move.Unit * (spd * dt)
             end
@@ -976,7 +984,7 @@ local function toggleUIVisible()
 end
 
 UIS.InputBegan:Connect(function(input, gpe)
-    if gpe or not _G.BlairHub then return end
+    if gpe or not _G.BlairHub or isTypingInTextBox() then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
         toggleUIVisible()
         return
@@ -1268,9 +1276,10 @@ local function makeKeybindRow(label, bindKey, order)
         Btn.BackgroundColor3 = C.HuntRed
         local conn
         conn = UIS.InputBegan:Connect(function(input, gpe)
-            if gpe then return end
+            if gpe or isTypingInTextBox() then return end
+            if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
             local kc = input.KeyCode
-            if kc == Enum.KeyCode.Unknown then return end
+            if kc == Enum.KeyCode.Unknown or kc == Enum.KeyCode.Escape then return end
             KEYBINDS[bindKey] = kc
             Btn.Text = kc.Name
             Btn.BackgroundColor3 = C.AccentDim
@@ -2161,7 +2170,7 @@ traitCard = TraitCard
 
 -- Hotkey Trait
 UIS.InputBegan:Connect(function(input, gpe)
-    if gpe or not _G.BlairHub then return end
+    if gpe or not _G.BlairHub or isTypingInTextBox() then return end
     if input.KeyCode == KEYBINDS.Trait then
         setTraitVisible(not traitVisible)
     end
