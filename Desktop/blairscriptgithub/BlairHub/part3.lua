@@ -32,6 +32,7 @@ local goToGhostRoom = S.goToGhostRoom
 local getTotalToolCount = S.getTotalToolCount
 local hasInInventory = S.hasInInventory
 local bringTool = S.bringTool
+local equipTool = S.equipTool
 local setFarmStatus = S.setFarmStatus
 local updateGhostFilter = S.updateGhostFilter
 local getPossibleGhosts = S.getPossibleGhosts
@@ -40,6 +41,10 @@ local conn = S.conn
 local goToVan = S.goToVan
 local runAutoFarm = S.runAutoFarm
 local doAllQuests = S.doAllQuests
+local equipTool = S.equipTool
+local hasInInventory = S.hasInInventory
+local bringTool = S.bringTool
+local moveToPos = S.moveToPos
 
 -- ============ GLOBAL TOAST ============
 local _toastQueue = 0

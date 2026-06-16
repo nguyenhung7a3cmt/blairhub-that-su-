@@ -426,9 +426,17 @@ local function smartTP(dest, label)
     local now = tick()
     local cooldown = gaussian(10, 2)
     if now - lastTPTime < cooldown then
-        local wait = cooldown - (now - lastTPTime)
-        print(string.format("[smartTP] Cooldown %.1fs", wait))
-        task.wait(wait)
+        local remaining = cooldown - (now - lastTPTime)
+        print(string.format("[smartTP] Cooldown %.1fs — walking instead", remaining))
+        -- Di chuyển bằng Humanoid thay vì TP khi còn cooldown
+        local hum2 = getChar() and getChar():FindFirstChildOfClass("Humanoid")
+        if hum2 then
+            hum2:MoveTo(dest)
+            local t = 0
+            repeat task.wait(0.5); t = t + 0.5
+            until t >= remaining or (getChar() and getChar():FindFirstChild("HumanoidRootPart") and (getChar().HumanoidRootPart.Position - dest).Magnitude < 8)
+        end
+        return true
     end
 
     local char = getChar()
