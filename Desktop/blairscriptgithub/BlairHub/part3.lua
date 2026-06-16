@@ -750,6 +750,8 @@ local CAM_SCRIPT_NAMES = {
     ["Camera(Keep)"]      = true,
     ["Old_Camera(Keep)"]  = true,
     ["CameraLookVector"]  = true,
+    ["MaxVelocity"]      = true,
+    ["DesiredAngle"]     = true,
     ["CameraTransparency"]= true,
 }
 local function disableGameCameraScripts()
@@ -1858,31 +1860,35 @@ RunService.Heartbeat:Connect(function(dt)
         if Config.HuntAlert then
             local hv = ghost and ghost:FindFirstChild("Hunting")
             local hunting = hv and hv.Value==true
-            if hunting and not _lastHunting then
-                if _G.BlairHuntAlert then _G.BlairHuntAlert.Visible=true end
-                -- Bắt đầu countdown hunt ~50s (estimate Blair hunt duration)
-                task.spawn(function()
-                    local _huntDur = 50
-                    local _t = _huntDur
-                    while _G.BlairHub and _t > 0 do
-                        task.wait(1)
-                        _t = _t - 1
-                        local hv2 = ghost and ghost:FindFirstChild("Hunting")
-                        local stillHunting = hv2 and hv2.Value==true
-                        if not stillHunting then break end
-                        if _G.BlairHuntAlert then
-                            local lbl = _G.BlairHuntAlert:FindFirstChild("HuntCountdown")
-                            if lbl then lbl.Text = "HUNT — " .. _t .. "s" end
-                        end
+            if hunting then
+                if _G.BlairHuntAlert then _G.BlairHuntAlert.Visible = true end
+                if not _lastHunting then
+                    _G.BlairHuntStartedAt = tick()
+                end
+                if _G.BlairHuntAlert then
+                    local lbl = _G.BlairHuntAlert:FindFirstChild("HuntCountdown")
+                    if lbl then
+                        local elapsed = math.max(0, math.floor(tick() - (_G.BlairHuntStartedAt or tick())))
+                        lbl.Text = "HUNT - " .. elapsed .. "s"
                     end
-                    if _G.BlairHuntAlert then
-                        local lbl = _G.BlairHuntAlert:FindFirstChild("HuntCountdown")
-                        if lbl then lbl.Text = "HUNTING" end
-                    end
-                end)
-            elseif not hunting and _lastHunting then
-                if _G.BlairHuntAlert then _G.BlairHuntAlert.Visible=false end
+                end
+            else
+                if _G.BlairHuntAlert then
+                    local lbl = _G.BlairHuntAlert:FindFirstChild("HuntCountdown")
+                    if lbl then lbl.Text = "HUNTING" end
+                    _G.BlairHuntAlert.Visible = false
+                end
+                _G.BlairHuntStartedAt = nil
             end
+            _lastHunting = hunting or false
+        else
+            if _G.BlairHuntAlert then
+                local lbl = _G.BlairHuntAlert:FindFirstChild("HuntCountdown")
+                if lbl then lbl.Text = "HUNTING" end
+                _G.BlairHuntAlert.Visible = false
+            end
+            _G.BlairHuntStartedAt = nil
+        end
             _lastHunting = hunting or false
         else
             if _G.BlairHuntAlert then _G.BlairHuntAlert.Visible=false end

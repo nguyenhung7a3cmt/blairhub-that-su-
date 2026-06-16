@@ -159,7 +159,7 @@ local function getAllESPItemRoots()
     table.insert(roots, {
         root = workspace,
         deep = false,
-        workspaceOnly = true, -- chỉ lấy direct children
+        workspaceOnly = true, -- chá»‰ láº¥y direct children
     })
 
     return roots
@@ -177,7 +177,7 @@ end
 
 local function loadGhostDB()
     if next(GHOST_DB) then
-        -- Đảm bảo GHOST_DB_SET luôn được build nếu chưa có
+        -- Äáº£m báº£o GHOST_DB_SET luÃ´n Ä‘Æ°á»£c build náº¿u chÆ°a cÃ³
         if not next(GHOST_DB_SET) then
             for gname, evList in pairs(GHOST_DB) do
                 local s = {}
@@ -286,6 +286,12 @@ local function isHunting()
 end
 
 local tweenToPos -- forward declaration
+local lastTPTime = 0
+local function gaussian(mean, stddev)
+    local u = math.max(math.random(), 1e-10)
+    local v = math.random()
+    return mean + stddev * math.sqrt(-2 * math.log(u)) * math.cos(2 * math.pi * v)
+end
 
 local function moveToPos(dest,label)
     if not dest then return false end
@@ -309,13 +315,13 @@ local function getOutsidePos()
 end
 
 -- ============================================================================
--- [v7.9 FIX] Van Door — dùng OpenVan BindableEvent (confirmed từ scan)
+-- [v7.9 FIX] Van Door â€” dÃ¹ng OpenVan BindableEvent (confirmed tá»« scan)
 -- Bindables: OpenVan, VanOpened, VanClosed
 S.vanDoorOpened = false
 local function openVanDoor()
     if S.vanDoorOpened then return true end
 
-    -- Method 1: Fire OpenVan BindableEvent (direct, no position needed, không cần vanMdl)
+    -- Method 1: Fire OpenVan BindableEvent (direct, no position needed, khÃ´ng cáº§n vanMdl)
     local openedViaBindable=false
     pcall(function()
         local bind=RS:FindFirstChild("Bindables")
@@ -333,7 +339,7 @@ local function openVanDoor()
         return true
     end
 
-    -- Method 2: Fallback ProximityPrompt scan (cần vanMdl)
+    -- Method 2: Fallback ProximityPrompt scan (cáº§n vanMdl)
     local Map=getMap()
     local van=Map and Map:FindFirstChild("Van")
     local vanMdl=van and van:FindFirstChild("Van")
@@ -361,7 +367,7 @@ local function openVanDoor()
         end
     end
     if not bestPrompt then
-        print("[VanDoor] No prompt found — continuing anyway")
+        print("[VanDoor] No prompt found â€” continuing anyway")
         S.vanDoorOpened=true
         return true
     end
@@ -379,7 +385,7 @@ local function openVanDoor()
     return true
 end
 
--- [OPT-6] getSortedRooms cache centers, chỉ rebuild khi Zones đổi
+-- [OPT-6] getSortedRooms cache centers, chá»‰ rebuild khi Zones Ä‘á»•i
 local _roomsCache = nil
 local _roomsDirty = true
 
@@ -437,7 +443,7 @@ local function getSortedRooms()
         _roomsDirty = false
     end
 
-    -- Sort theo nhiệt độ hiện tại
+    -- Sort theo nhiá»‡t Ä‘á»™ hiá»‡n táº¡i
     table.sort(_roomsCache, function(a, b)
         local ta = a.tempRef and a.tempRef.Value or a.temp
         local tb = b.tempRef and b.tempRef.Value or b.temp
@@ -485,14 +491,14 @@ tweenToPos = function(dest, label, speed)
         end
     end
 
-    -- TP vào khoảng không giữa phòng (dest + 3 studs cao), không raycast
-    -- Character tự rơi xuống sàn → server không reject
+    -- TP vÃ o khoáº£ng khÃ´ng giá»¯a phÃ²ng (dest + 3 studs cao), khÃ´ng raycast
+    -- Character tá»± rÆ¡i xuá»‘ng sÃ n â†’ server khÃ´ng reject
     local landing = dest + Vector3.new(0, 3, 0)
     hrp.CFrame = CFrame.new(landing)
     hrp.AssemblyLinearVelocity = Vector3.zero
     hrp.AssemblyAngularVelocity = Vector3.zero
 
-    -- Chờ character rơi xuống sàn tự nhiên (tối đa 1.5s)
+    -- Chá» character rÆ¡i xuá»‘ng sÃ n tá»± nhiÃªn (tá»‘i Ä‘a 1.5s)
     hum = char and char:FindFirstChildOfClass("Humanoid")
     if hum then
         hum:ChangeState(Enum.HumanoidStateType.Freefall)
@@ -505,26 +511,32 @@ tweenToPos = function(dest, label, speed)
 end
 
 -- ============================================================================
--- [smartTP] Adaptive TP với raycast grid sampling + anticheat gaussian
+-- [smartTP] Adaptive TP vá»›i raycast grid sampling + anticheat gaussian
 -- ============================================================================
-local lastTPTime = 0
-
-local function gaussian(mean, stddev)
-    local u = math.max(math.random(), 1e-10)
-    local v = math.random()
-    return mean + stddev * math.sqrt(-2 * math.log(u)) * math.cos(2 * math.pi * v)
-end
-
 local function smartTP(dest, label)
     if not dest then return false end
 
-    -- Anticheat cooldown
+    local fallbackMove = function(reason)
+        print("[smartTP] " .. reason .. ", fallback")
+        if tweenToPos then
+            return tweenToPos(dest, label, 50)
+        end
+        local humFallback = getChar() and getChar():FindFirstChildOfClass("Humanoid")
+        if humFallback then
+            humFallback:MoveTo(dest)
+            local t = 0
+            repeat task.wait(0.25); t = t + 0.25
+            until t >= 3 or (getChar() and getChar():FindFirstChild("HumanoidRootPart") and (getChar().HumanoidRootPart.Position - dest).Magnitude < 8)
+            return true
+        end
+        return false
+    end
+
     local now = tick()
     local cooldown = gaussian(4, 0.8)
     if now - lastTPTime < cooldown then
         local remaining = cooldown - (now - lastTPTime)
-        print(string.format("[smartTP] Cooldown %.1fs — walking instead", remaining))
-        -- Di chuyển bằng Humanoid thay vì TP khi còn cooldown
+        print(string.format("[smartTP] Cooldown %.1fs - walking instead", remaining))
         local hum2 = getChar() and getChar():FindFirstChildOfClass("Humanoid")
         if hum2 then
             hum2:MoveTo(dest)
@@ -545,7 +557,6 @@ local function smartTP(dest, label)
     rp.FilterDescendantsInstances = {char}
     rp.IgnoreWater = true
 
-    -- Bước 1: Detect phòng tại dest
     local dirs = {
         Vector3.new(1,0,0), Vector3.new(-1,0,0),
         Vector3.new(0,0,1), Vector3.new(0,0,-1),
@@ -560,11 +571,8 @@ local function smartTP(dest, label)
 
     local hitUp = workspace:Raycast(dest, Vector3.new(0, 1, 0) * 20, rp)
     local room_height = hitUp and hitUp.Distance or 10
-
-    -- Bước 2: Landing offset Y
     local landingOffsetY = math.clamp(room_height - 2, 1.5, 3)
 
-    -- Bước 3: Grid sampling
     local grid_step
     if safe_radius < 3 then grid_step = 0.5
     elseif safe_radius <= 6 then grid_step = 1.0
@@ -572,7 +580,6 @@ local function smartTP(dest, label)
 
     local bestPoint = nil
     local bestScore = -math.huge
-
     local x = -safe_radius
     while x <= safe_radius do
         local z = -safe_radius
@@ -586,10 +593,9 @@ local function smartTP(dest, label)
                     local distToTarget = (landPos - dest).Magnitude
                     local distToWall = math.min(safe_radius, minWall - math.sqrt(x*x + z*z))
                     local score = -distToTarget * 2 + distToWall
-
                     if score > bestScore then
                         bestScore = score
-                        bestPoint = landPos -- luu diem that, jitter sau khi chon
+                        bestPoint = landPos
                     end
                 end
             end
@@ -599,12 +605,9 @@ local function smartTP(dest, label)
     end
 
     if not bestPoint then
-        -- Fallback về tweenToPos cũ
-        print("[smartTP] Không tìm được điểm an toàn, fallback")
-        return tweenToPos(dest, label, 50)
+        return fallbackMove("No safe point")
     end
 
-    -- Verify: 3 ray song song thay spherecast
     local blocked = false
     local offsets = {Vector3.new(0,0,0), Vector3.new(0.5,0,0), Vector3.new(-0.5,0,0)}
     for _, off in ipairs(offsets) do
@@ -612,15 +615,14 @@ local function smartTP(dest, label)
         local dir = (bestPoint - from)
         local verify = workspace:Raycast(from, dir, rp)
         if verify and verify.Distance < dir.Magnitude - 1 then
-            blocked = true; break
+            blocked = true
+            break
         end
     end
     if blocked then
-        print("[smartTP] Đường đi bị chặn, fallback")
-        return tweenToPos(dest, label, 50)
+        return fallbackMove("Path blocked")
     end
 
-    -- Jitter sau khi chon diem tot nhat (anticheat)
     local jx = gaussian(0, 0.8)
     local jz = gaussian(0, 0.8)
     bestPoint = bestPoint + Vector3.new(jx, 0, jz)
@@ -630,8 +632,7 @@ local function smartTP(dest, label)
     hrp.AssemblyAngularVelocity = Vector3.zero
     if hum then hum:ChangeState(Enum.HumanoidStateType.Freefall) end
 
-    -- Gaussian timing
-    task.wait(gaussian(0.15, 0.03))
+    task.wait(math.max(0.05, gaussian(0.15, 0.03)))
     lastTPTime = tick()
 
     local hrpF = getChar() and getChar():FindFirstChild("HumanoidRootPart")
@@ -668,7 +669,7 @@ local function goToGhostRoom()
 end
 
 -- ============================================================================
--- [v7.8] Inventory — 3 slot mặc định, dùng Slot1-5 ObjectValue để track
+-- [v7.8] Inventory â€” 3 slot máº·c Ä‘á»‹nh, dÃ¹ng Slot1-5 ObjectValue Ä‘á»ƒ track
 -- ============================================================================
 local invRemote=nil
 local function getInvRemote()
@@ -677,7 +678,7 @@ local function getInvRemote()
     return invRemote
 end
 
--- Đếm số tool đang có (BP + char)
+-- Äáº¿m sá»‘ tool Ä‘ang cÃ³ (BP + char)
 local function getBPToolCount()
     local bp=getBP()
     if not bp then return 0 end
@@ -826,18 +827,18 @@ local function pickupFromFloor(toolObj)
     return confirmed or hasInInventory(toolObj.Name)
 end
 
--- [v7.8 FIX] bringTool — kiểm tra slot trước khi pick
--- 3 slot mặc định: nếu đã đủ 3, drop 1 trước khi pick
+-- [v7.8 FIX] bringTool â€” kiá»ƒm tra slot trÆ°á»›c khi pick
+-- 3 slot máº·c Ä‘á»‹nh: náº¿u Ä‘Ã£ Ä‘á»§ 3, drop 1 trÆ°á»›c khi pick
 local function bringTool(name)
     if hasInInventory(name) then return true end
 
-    -- Kiểm tra slot còn trống không (max 3)
+    -- Kiá»ƒm tra slot cÃ²n trá»‘ng khÃ´ng (max 3)
     local total=getTotalToolCount()
     if total>=3 then
-        -- Drop tool đang cầm (equipped) trước
+        -- Drop tool Ä‘ang cáº§m (equipped) trÆ°á»›c
         dropEquipped()
         task.wait(0.3)
-        -- Nếu vẫn còn 3, drop tool trong BP
+        -- Náº¿u váº«n cÃ²n 3, drop tool trong BP
         if getTotalToolCount()>=3 then
             dropCurrentTool()
             task.wait(0.3)
@@ -898,12 +899,12 @@ local function waitHuntOver(returnPos, returnLabel)
     setFarmStatus("HUNT! Fleeing outside...", C.HuntRed)
     moveToPos(getOutsidePos(), "outside")
     local huntDeadline = tick() + 120
-    -- [OPT-7] dùng _isHuntingNow (updated bởi Changed event OPT-2), poll 0.2s
+    -- [OPT-7] dÃ¹ng _isHuntingNow (updated bá»Ÿi Changed event OPT-2), poll 0.2s
     while _isHuntingNow and _G.BlairHub and Config.AutoFarm and tick() < huntDeadline do
         task.wait(0.2)
     end
     task.wait(1)
-    setFarmStatus("Hunt over — returning...", C.Green)
+    setFarmStatus("Hunt over â€” returning...", C.Green)
     if returnPos then moveToPos(returnPos, returnLabel or "room") end
 end
 
@@ -1015,8 +1016,8 @@ local function submitGuess(ghostName)
 end
 
 -- ============================================================================
--- [v7.8 FIX] leaveMatch — chỉ tween đến van, KHÔNG auto fire leave
--- Player tự bấm leave button
+-- [v7.8 FIX] leaveMatch â€” chá»‰ tween Ä‘áº¿n van, KHÃ”NG auto fire leave
+-- Player tá»± báº¥m leave button
 -- ============================================================================
 local function goToVan()
     setFarmStatus("Done! Go to van to leave...",C.Green)
@@ -1030,7 +1031,7 @@ local function goToVan()
             moveToPos(sw.Position+Vector3.new(0,0,2),"van leave button")
             return
         end
-        -- fallback: tween đến van position
+        -- fallback: tween Ä‘áº¿n van position
         local p=vanMdl:FindFirstChildWhichIsA("BasePart")
         if p then moveToPos(p.Position+Vector3.new(0,0,3),"van") end
     end
@@ -1057,7 +1058,7 @@ local function startPassiveDetection(Map)
         end))
     end
 
-    -- [OPT-10] watchOrbs hook cả trường hợp folder Orbs tạo muộn
+    -- [OPT-10] watchOrbs hook cáº£ trÆ°á»ng há»£p folder Orbs táº¡o muá»™n
     local function watchOrbs()
         local function hookOrbs(orbs)
             if #orbs:GetChildren() > 0 then setEvidence("ORB", true) end
@@ -1070,7 +1071,7 @@ local function startPassiveDetection(Map)
         end))
     end
 
-    -- [OPT-4] watchFreeze event-driven, không poll 0.3s
+    -- [OPT-4] watchFreeze event-driven, khÃ´ng poll 0.3s
     local function watchFreeze()
         if not Zones then return end
         local stableCount = 0
@@ -1166,7 +1167,7 @@ local function startPassiveDetection(Map)
                 end))
             end)
         end
-        -- Chỉ hook SBox khi player đang cầm/mang, KHÔNG hook khi ở Items (trên sàn)
+        -- Chá»‰ hook SBox khi player Ä‘ang cáº§m/mang, KHÃ”NG hook khi á»Ÿ Items (trÃªn sÃ n)
         scan(getChar()); scan(getBP())
         conn(lp.CharacterAdded:Connect(function(char)
             task.wait(0.5); scan(char); scan(getBP())
@@ -1193,7 +1194,7 @@ local function startPassiveDetection(Map)
         end)
     end
 
-    -- [OPT-5] watchRoomDisplay event-driven, không poll 0.5s
+    -- [OPT-5] watchRoomDisplay event-driven, khÃ´ng poll 0.5s
     local function watchRoomDisplay()
         if not Zones or not S.ghostRoomLbl then return end
         local function refresh()
@@ -1243,7 +1244,7 @@ task.spawn(function()
     if Map then task.wait(1.5); startPassiveDetection(Map) end
     workspace.ChildAdded:Connect(function(child)
         if child.Name~="Map" or not _G.BlairHub then return end
-        S.vanDoorOpened=false -- reset khi vào map mới
+        S.vanDoorOpened=false -- reset khi vÃ o map má»›i
         _ghostCache = nil; _ghostCacheDirty = true  -- [OPT-1] reset ghost cache
         _roomsCache = nil; _roomsDirty = true       -- [OPT-6] reset rooms cache
         task.wait(1.5)
@@ -1261,8 +1262,8 @@ task.spawn(function()
 end)
 
 -- ============================================================================
--- [v7.8 FIX] checkEMF — wait equip + wait remote replicate đúng cách
--- EMF ở BP, cần equipTool trước, chờ char nhận, chờ EMFRemote replicate
+-- [v7.8 FIX] checkEMF â€” wait equip + wait remote replicate Ä‘Ãºng cÃ¡ch
+-- EMF á»Ÿ BP, cáº§n equipTool trÆ°á»›c, chá» char nháº­n, chá» EMFRemote replicate
 -- ============================================================================
 
 S.Players = Players

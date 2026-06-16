@@ -1,4 +1,4 @@
--- BlairHub split chunk
+﻿-- BlairHub split chunk
 local S = (...) or {}
 local RS = S.RS
 local C = S.C
@@ -45,17 +45,17 @@ local function checkEMF(roomPos,roomName)
     if detectedEvidence["EMF5"] then return end
     setFarmStatus("EMF: equipping...",C.Yellow)
 
-    -- Đảm bảo có tool trong inventory
+    -- Ã„ÂÃ¡ÂºÂ£m bÃ¡ÂºÂ£o cÃƒÂ³ tool trong inventory
     if not hasInInventory("EMF Reader") then
         setFarmStatus("EMF: not in inventory",C.TextMuted); return
     end
 
-    -- Equip tool vào character
+    -- Equip tool vÃƒÂ o character
     if not equipTool("EMF Reader") then
         setFarmStatus("EMF: equip failed",C.Red); return
     end
 
-    -- Chờ tool thực sự replicate vào character (quan trọng!)
+    -- ChÃ¡Â»Â tool thÃ¡Â»Â±c sÃ¡Â»Â± replicate vÃƒÂ o character (quan trÃ¡Â»Âng!)
     local eq=nil
     local waitT=tick()
     repeat
@@ -69,7 +69,7 @@ local function checkEMF(roomPos,roomName)
     end
     print("[EMF] Tool in char OK:",eq.Name)
 
-    -- Chờ EMFRemote replicate vào tool (quan trọng!)
+    -- ChÃ¡Â»Â EMFRemote replicate vÃƒÂ o tool (quan trÃ¡Â»Âng!)
     local emfRemote=nil
     local waitR=tick()
     repeat
@@ -87,7 +87,7 @@ local function checkEMF(roomPos,roomName)
         return
     end
 
-    -- Kích hoạt EMF
+    -- KÃƒÂ­ch hoÃ¡ÂºÂ¡t EMF
     pcall(function() emfRemote:FireServer(true) end)
     setFarmStatus("EMF: scanning...",C.Yellow)
     print("[EMF] Remote activated OK")
@@ -137,7 +137,7 @@ local function checkWriting(roomPos,roomName)
     if not hasInInventory("Ghost Writing Book") then return end
     if not equipTool("Ghost Writing Book") then return end
 
-    -- Chờ replicate
+    -- ChÃ¡Â»Â replicate
     local eq=nil
     local wt=tick()
     repeat task.wait(0.15); eq=getEquipped("Ghost Writing Book") until eq or tick()-wt>3
@@ -315,7 +315,7 @@ local function checkSLS(roomPos,roomName)
 end
 
 -- ============================================================================
--- checkSBox — SpiritBoxError detect
+-- checkSBox Ã¢â‚¬â€ SpiritBoxError detect
 -- ============================================================================
 local function checkSBox(roomPos,roomName)
     if detectedEvidence["SBOX"] then return end
@@ -365,7 +365,7 @@ local function checkSBox(roomPos,roomName)
         end))
         print("[SBox] Hooked",#folder:GetChildren(),"sounds")
     end
-    -- Hook thêm ProximitySFX (Close/Near/NextToYou = ghost gần)
+    -- Hook thÃƒÂªm ProximitySFX (Close/Near/NextToYou = ghost gÃ¡ÂºÂ§n)
     pcall(function()
         local eq=getEquipped("Spirit Box")
         if not eq then return end
@@ -413,8 +413,8 @@ local function checkSBox(roomPos,roomName)
             end
         end
 
-        -- [FIX] Chỉ dùng GhostTalk sound để detect — SpiritBoxError = ghost KHÔNG respond
-        -- không dùng "not gotError" làm điều kiện positive nữa (false positive khi lag)
+        -- [FIX] ChÃ¡Â»â€° dÃƒÂ¹ng GhostTalk sound Ã„â€˜Ã¡Â»Æ’ detect Ã¢â‚¬â€ SpiritBoxError = ghost KHÃƒâ€NG respond
+        -- khÃƒÂ´ng dÃƒÂ¹ng "not gotError" lÃƒÂ m Ã„â€˜iÃ¡Â»Âu kiÃ¡Â»â€¡n positive nÃ¡Â»Â¯a (false positive khi lag)
         local gotError = false
         local errorConn = nil
         local sboxErr = eq:FindFirstChild("SpiritBoxError")
@@ -427,19 +427,19 @@ local function checkSBox(roomPos,roomName)
         pcall(function() aq:FireServer(btn) end)
         print("[SBox] Asked:", btn)
 
-        -- Chờ tối đa 2.5s: nếu detected (sound) thì true, còn lại false
+        -- ChÃ¡Â»Â tÃ¡Â»â€˜i Ã„â€˜a 2.5s: nÃ¡ÂºÂ¿u detected (sound) thÃƒÂ¬ true, cÃƒÂ²n lÃ¡ÂºÂ¡i false
         local waitStart = tick()
         while tick() - waitStart < 2.5 and not detected do
-            if gotError then break end  -- server xác nhận miss → thoát sớm
+            if gotError then break end  -- server xÃƒÂ¡c nhÃ¡ÂºÂ­n miss Ã¢â€ â€™ thoÃƒÂ¡t sÃ¡Â»â€ºm
             task.wait(0.08)
         end
         if errorConn then pcall(function() errorConn:Disconnect() end) end
 
         if detected then
-            print("[SBox] GhostTalk sound detected → respond!")
+            print("[SBox] GhostTalk sound detected Ã¢â€ â€™ respond!")
             return true
         end
-        print("[SBox] No sound →", gotError and "SpiritBoxError confirmed miss" or "timeout")
+        print("[SBox] No sound Ã¢â€ â€™", gotError and "SpiritBoxError confirmed miss" or "timeout")
         return false
     end
 
@@ -447,7 +447,7 @@ local function checkSBox(roomPos,roomName)
     S.sboxToken = myToken
     setFarmStatus("Spirit Box: asking ghost...", C.FlyBlue)
 
-    local deadline = tick() + 40  -- tăng từ 32 lên 40s
+    local deadline = tick() + 40  -- tÃ„Æ’ng tÃ¡Â»Â« 32 lÃƒÂªn 40s
     local reequipTimer = tick()
     local askCount = 0
 
@@ -496,9 +496,9 @@ local function checkSBox(roomPos,roomName)
 end
 
 -- ============================================================================
--- [v8.2] Do All Quests — handler riêng cho từng objective (phương án A)
--- Mỗi objective trên Whiteboard có 1 BoolValue HasCompleted để biết đã xong.
--- Tùy nội dung objective mà dispatch sang handler tương ứng.
+-- [v8.2] Do All Quests Ã¢â‚¬â€ handler riÃƒÂªng cho tÃ¡Â»Â«ng objective (phÃ†Â°Ã†Â¡ng ÃƒÂ¡n A)
+-- MÃ¡Â»â€”i objective trÃƒÂªn Whiteboard cÃƒÂ³ 1 BoolValue HasCompleted Ã„â€˜Ã¡Â»Æ’ biÃ¡ÂºÂ¿t Ã„â€˜ÃƒÂ£ xong.
+-- TÃƒÂ¹y nÃ¡Â»â„¢i dung objective mÃƒÂ  dispatch sang handler tÃ†Â°Ã†Â¡ng Ã¡Â»Â©ng.
 -- ============================================================================
 local function findObjectivesFolder()
     local Map = getMap()
@@ -510,10 +510,37 @@ local function findObjectivesFolder()
     local wb = screens and screens:FindFirstChild("Whiteboard")
     local sg2 = wb and wb:FindFirstChild("SurfaceGui")
     local fr = sg2 and sg2:FindFirstChild("Frame")
-    return fr and fr:FindFirstChild("Objectives")
+    local objs = fr and fr:FindFirstChild("Objectives")
+    if objs then return objs end
+
+    local gui = lp:FindFirstChildOfClass("PlayerGui")
+    if gui then
+        local journal = gui:FindFirstChild("Journal")
+        local handler = journal and journal:FindFirstChild("JournalHandler")
+        if handler then return handler end
+    end
+    return nil
+
+local function getObjectiveDoneValue(obj)
+    if not obj then return nil end
+    return obj:FindFirstChild("HasCompleted") or obj:FindFirstChild("Completed")
 end
 
--- Quay camera nhìn vào part (để chụp ảnh đúng subject)
+local function getObjectiveText(obj)
+    if not obj then return "" end
+    if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+        return tostring(obj.Text or "")
+    end
+    local txtObj = obj:FindFirstChildWhichIsA("TextLabel", true) or obj:FindFirstChildWhichIsA("TextButton", true)
+    if txtObj then
+        local ok, txt = pcall(function() return txtObj.Text end)
+        if ok and txt then return tostring(txt) end
+    end
+    return tostring(obj.Name or "")
+end
+
+
+-- Quay camera nhÃƒÂ¬n vÃƒÂ o part (Ã„â€˜Ã¡Â»Æ’ chÃ¡Â»Â¥p Ã¡ÂºÂ£nh Ã„â€˜ÃƒÂºng subject)
 local function lookAtPart(targetPart)
     pcall(function()
         local hrp = getChar() and getChar():FindFirstChild("HumanoidRootPart")
@@ -524,7 +551,7 @@ local function lookAtPart(targetPart)
     end)
 end
 
--- Chụp ảnh: equip Photo Camera, tới gần subject, nhắm vào và fire TakePhoto
+-- ChÃ¡Â»Â¥p Ã¡ÂºÂ£nh: equip Photo Camera, tÃ¡Â»â€ºi gÃ¡ÂºÂ§n subject, nhÃ¡ÂºÂ¯m vÃƒÂ o vÃƒÂ  fire TakePhoto
 local function objPhoto(subjectPart, label)
     if not subjectPart then return false end
     if not (hasInInventory("Photo Camera") or getEquipped("Photo Camera")) then
@@ -550,7 +577,7 @@ local function objPhoto(subjectPart, label)
     return true
 end
 
--- Thermometer dưới ngưỡng nhiệt: equip Thermometer, tới phòng lạnh nhất, đợi IsFreezing
+-- Thermometer dÃ†Â°Ã¡Â»â€ºi ngÃ†Â°Ã¡Â»Â¡ng nhiÃ¡Â»â€¡t: equip Thermometer, tÃ¡Â»â€ºi phÃƒÂ²ng lÃ¡ÂºÂ¡nh nhÃ¡ÂºÂ¥t, Ã„â€˜Ã¡Â»Â£i IsFreezing
 local function objThermometer(deadline)
     if not (hasInInventory("Thermometer") or getEquipped("Thermometer")) then
         if not bringTool("Thermometer") then return false end
@@ -723,7 +750,7 @@ local function objCursed(deadline)
     return true
 end
 
--- Incense Burner: equip, tới ghost room, fire Incense bindable
+-- Incense Burner: equip, tÃ¡Â»â€ºi ghost room, fire Incense bindable
 local function objIncense(deadline)
     if not (hasInInventory("Incense Burner") or getEquipped("Incense Burner")) then
         if not bringTool("Incense Burner") then return false end
@@ -754,7 +781,7 @@ local function objIncense(deadline)
     return true
 end
 
--- Đặt Trail Camera trong ghost room (ghost tự trigger -> passive hoàn thành)
+-- Ã„ÂÃ¡ÂºÂ·t Trail Camera trong ghost room (ghost tÃ¡Â»Â± trigger -> passive hoÃƒÂ n thÃƒÂ nh)
 local function objTrailCamera(deadline)
     if not (hasInInventory("Trail Camera") or getEquipped("Trail Camera")) then
         if not bringTool("Trail Camera") then return false end
@@ -774,32 +801,32 @@ local function objTrailCamera(deadline)
             end
         end
     end
-    return true -- đã đặt, phần trigger là passive
+    return true -- Ã„â€˜ÃƒÂ£ Ã„â€˜Ã¡ÂºÂ·t, phÃ¡ÂºÂ§n trigger lÃƒÂ  passive
 end
 
 -- ============================================================================
--- [NEW] objCandle — equip Lighter, vào ghost room, bật lên, đứng chờ ghost thổi
--- Update March 2026: Lighter bị ghost thổi tắt = trigger candle objective
+-- [NEW] objCandle Ã¢â‚¬â€ equip Lighter, vÃƒÂ o ghost room, bÃ¡ÂºÂ­t lÃƒÂªn, Ã„â€˜Ã¡Â»Â©ng chÃ¡Â»Â ghost thÃ¡Â»â€¢i
+-- Update March 2026: Lighter bÃ¡Â»â€¹ ghost thÃ¡Â»â€¢i tÃ¡ÂºÂ¯t = trigger candle objective
 -- ============================================================================
 local function objCandle(deadline)
-    -- Lighter là starter tool, luôn có sẵn trong Items
+    -- Lighter lÃƒÂ  starter tool, luÃƒÂ´n cÃƒÂ³ sÃ¡ÂºÂµn trong Items
     if not (hasInInventory("Lighter") or getEquipped("Lighter")) then
         if not bringTool("Lighter") then return false end
     end
     if not equipTool("Lighter") then return false end
     task.wait(0.3)
 
-    -- Bật lighter lên
+    -- BÃ¡ÂºÂ­t lighter lÃƒÂªn
     local eq = getEquipped("Lighter")
     pcall(function()
         local r = eq and eq:FindFirstChild("LighterRemote")
         if r then r:FireServer(true) end
     end)
-    -- Fallback: fire ProximityPrompt để toggle on
+    -- Fallback: fire ProximityPrompt Ã„â€˜Ã¡Â»Æ’ toggle on
     if eq then firePromptsOf(eq) end
     task.wait(0.2)
 
-    -- Đi vào ghost room (lạnh nhất = ghost room)
+    -- Ã„Âi vÃƒÂ o ghost room (lÃ¡ÂºÂ¡nh nhÃ¡ÂºÂ¥t = ghost room)
     local rooms = getSortedRooms()
     if #rooms > 0 then
         moveToPos(rooms[1].pos, "ghost room candle")
@@ -832,7 +859,7 @@ local function objCandle(deadline)
     while tick() < deadline and not blown and _G.BlairHub and Config.AutoFarm do
         if isHunting() then
             waitHuntOver(rooms[1] and rooms[1].pos, "ghost room")
-            -- Re-equip và bật lại lighter sau hunt
+            -- Re-equip vÃƒÂ  bÃ¡ÂºÂ­t lÃ¡ÂºÂ¡i lighter sau hunt
             if not equipTool("Lighter") then break end
             eq = getEquipped("Lighter")
             pcall(function()
@@ -840,7 +867,7 @@ local function objCandle(deadline)
                 if r then r:FireServer(true) end
             end)
         end
-        -- Re-equip nếu bị unequip
+        -- Re-equip nÃ¡ÂºÂ¿u bÃ¡Â»â€¹ unequip
         if not getEquipped("Lighter") then
             if not equipTool("Lighter") then break end
             eq = getEquipped("Lighter")
@@ -852,7 +879,7 @@ local function objCandle(deadline)
     return blown
 end
 
--- [NEW] objCrucifix — đặt crucifix trong ghost room, chờ ghost burn nó
+-- [NEW] objCrucifix Ã¢â‚¬â€ Ã„â€˜Ã¡ÂºÂ·t crucifix trong ghost room, chÃ¡Â»Â ghost burn nÃƒÂ³
 local function objCrucifix(deadline)
     if not (hasInInventory("Crucifix") or getEquipped("Crucifix")) then
         if not bringTool("Crucifix") then return false end
@@ -860,13 +887,13 @@ local function objCrucifix(deadline)
     if not equipTool("Crucifix") then return false end
     task.wait(0.3)
 
-    -- Drop crucifix vào ghost room
+    -- Drop crucifix vÃƒÂ o ghost room
     local rooms = getSortedRooms()
     if #rooms > 0 then
         moveToPos(rooms[1].pos, "ghost room crucifix")
         task.wait(0.4)
     end
-    -- Drop xuống sàn
+    -- Drop xuÃ¡Â»â€˜ng sÃƒÂ n
     pcall(function()
         local r = getInvRemote()
         if r then r:FireServer("Drop") end
@@ -892,7 +919,7 @@ local function objCrucifix(deadline)
     setFarmStatus("Crucifix: waiting for ghost to burn...", C.Orange)
     while tick() < deadline and not burned and _G.BlairHub and Config.AutoFarm do
         if isHunting() then waitHuntOver(rooms[1] and rooms[1].pos, "ghost room") end
-        -- Re-check Items nếu crucifix vừa drop
+        -- Re-check Items nÃ¡ÂºÂ¿u crucifix vÃ¡Â»Â«a drop
         if not burned then
             local it = getItems()
             local cr = it and it:FindFirstChild("Crucifix")
@@ -904,36 +931,36 @@ local function objCrucifix(deadline)
     return burned
 end
 
--- [NEW] objGhostEvent — chỉ cần đứng gần ghost room chờ event xảy ra tự nhiên
+-- [NEW] objGhostEvent Ã¢â‚¬â€ chÃ¡Â»â€° cÃ¡ÂºÂ§n Ã„â€˜Ã¡Â»Â©ng gÃ¡ÂºÂ§n ghost room chÃ¡Â»Â event xÃ¡ÂºÂ£y ra tÃ¡Â»Â± nhiÃƒÂªn
 local function objGhostEvent(deadline)
     local rooms = getSortedRooms()
     if #rooms > 0 then
         moveToPos(rooms[1].pos, "ghost room event")
         task.wait(0.5)
     end
-    -- Event xảy ra tự nhiên, HasCompleted sẽ tự flip
-    -- Đứng chờ tối đa deadline, nếu hunt thì chạy ra ngoài rồi về
+    -- Event xÃ¡ÂºÂ£y ra tÃ¡Â»Â± nhiÃƒÂªn, HasCompleted sÃ¡ÂºÂ½ tÃ¡Â»Â± flip
+    -- Ã„ÂÃ¡Â»Â©ng chÃ¡Â»Â tÃ¡Â»â€˜i Ã„â€˜a deadline, nÃ¡ÂºÂ¿u hunt thÃƒÂ¬ chÃ¡ÂºÂ¡y ra ngoÃƒÂ i rÃ¡Â»â€œi vÃ¡Â»Â
     setFarmStatus("Ghost Event: waiting...", C.Orange)
     local waited = 0
     while tick() < deadline and _G.BlairHub and Config.AutoFarm do
         if isHunting() then waitHuntOver(rooms[1] and rooms[1].pos, "ghost room") end
         task.wait(1)
         waited = waited + 1
-        if waited > 20 then break end  -- chờ tối đa 20s rồi skip
+        if waited > 20 then break end  -- chÃ¡Â»Â tÃ¡Â»â€˜i Ã„â€˜a 20s rÃ¡Â»â€œi skip
     end
-    return true  -- luôn return true, HasCompleted check bên ngoài
+    return true  -- luÃƒÂ´n return true, HasCompleted check bÃƒÂªn ngoÃƒÂ i
 end
 
--- [NEW] objSurviveHunt — chỉ cần sống sót qua 1 hunt
+-- [NEW] objSurviveHunt Ã¢â‚¬â€ chÃ¡Â»â€° cÃ¡ÂºÂ§n sÃ¡Â»â€˜ng sÃƒÂ³t qua 1 hunt
 local function objSurviveHunt(deadline)
     setFarmStatus("Survive hunt: waiting for hunt...", C.HuntRed)
-    -- Nếu đang hunt rồi thì waitHuntOver là xong
+    -- NÃ¡ÂºÂ¿u Ã„â€˜ang hunt rÃ¡Â»â€œi thÃƒÂ¬ waitHuntOver lÃƒÂ  xong
     if isHunting() then
         local rooms = getSortedRooms()
         waitHuntOver(rooms[1] and rooms[1].pos, "ghost room")
         return true
     end
-    -- Chờ hunt xảy ra tự nhiên (tối đa deadline)
+    -- ChÃ¡Â»Â hunt xÃ¡ÂºÂ£y ra tÃ¡Â»Â± nhiÃƒÂªn (tÃ¡Â»â€˜i Ã„â€˜a deadline)
     while tick() < deadline and _G.BlairHub and Config.AutoFarm do
         if isHunting() then
             local rooms = getSortedRooms()
@@ -945,7 +972,7 @@ local function objSurviveHunt(deadline)
     return false
 end
 
--- [NEW] objParabolic — equip Parabolic Mic, đứng gần ghost, đợi whisper
+-- [NEW] objParabolic Ã¢â‚¬â€ equip Parabolic Mic, Ã„â€˜Ã¡Â»Â©ng gÃ¡ÂºÂ§n ghost, Ã„â€˜Ã¡Â»Â£i whisper
 local function objParabolic(deadline)
     if not (hasInInventory("Parabolic Microphone") or getEquipped("Parabolic Microphone")) then
         if not bringTool("Parabolic Microphone") then return false end
@@ -981,9 +1008,9 @@ local function objParabolic(deadline)
     return whispered
 end
 
--- [NEW] objEMFReader — fire EMFRemote và chờ EMF5, reuse logic checkEMF
+-- [NEW] objEMFReader Ã¢â‚¬â€ fire EMFRemote vÃƒÂ  chÃ¡Â»Â EMF5, reuse logic checkEMF
 local function objEMFReader(deadline)
-    -- Nếu đã detect EMF5 rồi thì objective này coi như done
+    -- NÃ¡ÂºÂ¿u Ã„â€˜ÃƒÂ£ detect EMF5 rÃ¡Â»â€œi thÃƒÂ¬ objective nÃƒÂ y coi nhÃ†Â° done
     if detectedEvidence["EMF5"] then return true end
     local rooms = getSortedRooms()
     local pos = rooms[1] and rooms[1].pos
@@ -993,15 +1020,16 @@ local function objEMFReader(deadline)
 end
 local function runObjectiveHandler(objName)
     local n = objName:lower()
-        local deadline = tick() + 60
-
-    -- "free / release the boo-boo doll" -> fire prompt giai phong
-    if (n:find("free") or n:find("release") or n:find("save")) and (n:find("boo") or n:find("doll")) then
+    local deadline = tick() + 60
+    if (n:find("free") or n:find("release") or n:find("save")) and (n:find("boo") or n:find("doll") or n:find("panda")) then
         return objFreeBooBoo(deadline)
-
-    -- chup anh: phan biet cursed/boo-boo vs ghost vs subject thuong
     elseif n:find("photo") or n:find("picture") or n:find("capture") then
-        if n:find("cursed") then
+        if n:find("crucifix") then
+            local it = getItems()
+            local cr = it and it:FindFirstChild("Crucifix")
+            local part = partOf(cr)
+            return objPhoto(part, "Burning Crucifix")
+        elseif n:find("cursed") then
             return objPhotoCursed(deadline)
         elseif n:find("boo") or n:find("panda") or n:find("doll") then
             local boo = findBooBoo()
@@ -1012,21 +1040,32 @@ local function runObjectiveHandler(objName)
             local part = ghost and ghost:FindFirstChildWhichIsA("BasePart")
             return objPhoto(part, "Ghost photo")
         end
-
-    elseif n:find("thermomet") or n:find("freezing") or (n:find("under") and n:find("c")) then
+    elseif n:find("emf") then
+        return objEMFReader(deadline)
+    elseif n:find("parabolic") or n:find("whisper") then
+        return objParabolic(deadline)
+    elseif n:find("thermomet") or n:find("freezing") or (n:find("under") and (n:find("c") or n:find("celsius"))) then
         return objThermometer(deadline)
-
-    -- "use a cursed object" -> dung cursed; neu doi hoi chup thi da bat o nhanh photo tren
-    elseif n:find("cursed") then
+    elseif n:find("event") or n:find("manifest") or n:find("witness") then
+        return objGhostEvent(deadline)
+    elseif n:find("survive") and n:find("hunt") then
+        return objSurviveHunt(deadline)
+    elseif n:find("burning crucifix") or (n:find("photo") and n:find("crucifix")) then
+        return objCrucifix(deadline)
+    elseif n:find("crucifix") or n:find("crucif") then
+        return objCrucifix(deadline)
+    elseif n:find("candle") or n:find("blow out") or n:find("blowout") then
+        return objCandle(deadline)
+    elseif n:find("cursed object") or (n:find("use") and n:find("cursed")) then
         return objCursed(deadline)
-
     elseif n:find("incense") or n:find("cleanse") or n:find("smudge") or n:find("stun") then
         return objIncense(deadline)
-
-    elseif n:find("trail") then
+    elseif n:find("trail camera") or (n:find("trail") and n:find("camera")) then
+        return objTrailCamera(deadline)
+    elseif n:find("motion") and n:find("camera") then
         return objTrailCamera(deadline)
     end
-    return nil -- khong co handler -> skip
+    return nil
 end
 
 local function doAllQuests()
@@ -1034,42 +1073,39 @@ local function doAllQuests()
     if not getMap() then setFarmStatus("Map not found!", C.Red); return 0 end
     local objs = findObjectivesFolder()
     if not objs then setFarmStatus("Objectives not found!", C.Red); return 0 end
-    -- Debug: in tên tất cả objectives
+    local list = {}
     for _, obj in ipairs(objs:GetChildren()) do
-        local hc = obj:FindFirstChild("HasCompleted")
-        print(string.format("[Quest] '%s' | done=%s", obj.Name, tostring(hc and hc.Value)))
+        local hc = getObjectiveDoneValue(obj)
+        local txt = getObjectiveText(obj)
+        if txt and txt ~= "" and hc then
+            print(string.format("[Quest] '%s' | text='%s' | done=%s", obj.Name, txt, tostring(hc.Value)))
+            table.insert(list, {ref=obj, done=hc, text=txt})
+        end
     end
-
     local done, skipped = 0, 0
-    for _, obj in ipairs(objs:GetChildren()) do
+    for _, entry in ipairs(list) do
         if not _G.BlairHub then break end
-        local hc = obj:FindFirstChild("HasCompleted")
-        if hc and not hc.Value then
-            setFarmStatus("Obj: " .. obj.Name:sub(1, 32), C.FlyPurple)
+        if not entry.done.Value then
+            setFarmStatus("Obj: " .. entry.text:sub(1, 40), C.FlyPurple)
             local handled = false
-            local ok, res = pcall(runObjectiveHandler, obj.Name)
+            local ok, res = pcall(runObjectiveHandler, entry.text)
             if ok and res ~= nil then handled = true end
             if handled then
-                -- chờ HasCompleted lật sang true (tối đa 6s)
-                local wd = tick() + 8
-                while tick() < wd and not hc.Value and _G.BlairHub do task.wait(0.1) end
-                if hc.Value then done = done + 1 else skipped = skipped + 1 end
+                local wd = tick() + 12
+                while tick() < wd and not entry.done.Value and _G.BlairHub do task.wait(0.1) end
+                if entry.done.Value then done = done + 1 else skipped = skipped + 1 end
             else
                 skipped = skipped + 1
             end
         end
     end
-    -- Bonus: chụp thêm ghost, boo-boo, all cursed object sau khi xong quest
-    setFarmStatus("Bonus: chụp ghost + cursed + boo-boo...", C.FlyPurple)
+    setFarmStatus("Bonus: chup ghost + cursed + boo-boo...", C.FlyPurple)
     pcall(function()
         local deadline2 = tick() + 60
-        -- Chụp ghost
         local ghost = findGhost()
         local ghostPart = ghost and ghost:FindFirstChildWhichIsA("BasePart")
         if ghostPart then objPhoto(ghostPart, "Ghost bonus photo") end
-        -- Chụp tất cả cursed objects
         objPhotoCursed(deadline2)
-        -- Chụp Boo-Boo Doll
         local boo = findBooBoo()
         local booPart = partOf(boo)
         if booPart then objPhoto(booPart, "Boo-Boo bonus photo") end
@@ -1081,9 +1117,9 @@ end
 
 -- ============================================================================
 -- AUTO FARM v7.8
--- Flow: Open van door → Pickup 3 tools (EMF+Writing+SLS) → Go ghost room
---       → Test all 3 → Drop all → Pickup Spirit Box → Test SBox
---       → Submit → Tween to van (player bấm leave thủ công)
+-- Flow: Open van door Ã¢â€ â€™ Pickup 3 tools (EMF+Writing+SLS) Ã¢â€ â€™ Go ghost room
+--       Ã¢â€ â€™ Test all 3 Ã¢â€ â€™ Drop all Ã¢â€ â€™ Pickup Spirit Box Ã¢â€ â€™ Test SBox
+--       Ã¢â€ â€™ Submit Ã¢â€ â€™ Tween to van (player bÃ¡ÂºÂ¥m leave thÃ¡Â»Â§ cÃƒÂ´ng)
 -- ============================================================================
 local function trySubmitAndGoVan(possible)
     if #possible==1 then
@@ -1112,13 +1148,13 @@ local function runAutoFarm()
         end
         if not getMap() then setFarmStatus("Map not found!",C.Red); return end
 
-        -- STEP 0: Mở van door trước tiên
+        -- STEP 0: MÃ¡Â»Å¸ van door trÃ†Â°Ã¡Â»â€ºc tiÃƒÂªn
         setFarmStatus("Opening van door...",C.Yellow)
         openVanDoor()
         task.wait(0.5)
         if not _G.BlairHub or not Config.AutoFarm then return end
 
-        -- STEP 0.5: Auto hoàn thành quest
+        -- STEP 0.5: Auto hoÃƒÂ n thÃƒÂ nh quest
         doAllQuests()
         task.wait(0.5)
         if not _G.BlairHub or not Config.AutoFarm then return end
@@ -1145,7 +1181,7 @@ local function runAutoFarm()
         if trySubmitAndGoVan(getPossibleGhosts()) then return end
 
         -- STEP 2: Pickup 3 tools (EMF + Writing + SLS)
-        -- 3 slot mặc định → pick từng cái, không drop tool kia
+        -- 3 slot mÃ¡ÂºÂ·c Ã„â€˜Ã¡Â»â€¹nh Ã¢â€ â€™ pick tÃ¡Â»Â«ng cÃƒÂ¡i, khÃƒÂ´ng drop tool kia
         setFarmStatus("Pickup: EMF + Writing + SLS...",C.Yellow)
         for _,toolName in ipairs({"EMF Reader","Ghost Writing Book","SLS Camera"}) do
             if not _G.BlairHub or not Config.AutoFarm then break end
@@ -1159,14 +1195,14 @@ local function runAutoFarm()
         end
         print("[Farm] Inventory after pickup 3 tools:",getTotalToolCount())
 
-        -- STEP 3: Tìm ghost room và scan
+        -- STEP 3: TÃƒÂ¬m ghost room vÃƒÂ  scan
         setFarmStatus("Finding ghost room...",C.FlyPurple)
         local _,ghostRoomPos=goToGhostRoom()
         safewait(0.5)
 
         local rooms = getSortedRooms()
         local coldRooms = {}
-        -- Lấy top 3 phòng lạnh nhất, bỏ qua Outside
+        -- LÃ¡ÂºÂ¥y top 3 phÃƒÂ²ng lÃ¡ÂºÂ¡nh nhÃ¡ÂºÂ¥t, bÃ¡Â»Â qua Outside
         for _, r in ipairs(rooms) do
             if r.name ~= "Outside" then
                 table.insert(coldRooms, r)
@@ -1176,12 +1212,12 @@ local function runAutoFarm()
         if #coldRooms == 0 then
             coldRooms = rooms
         end
-        print(string.format("[Farm] Scan %d phòng: %s",
+        print(string.format("[Farm] Scan %d phÃƒÂ²ng: %s",
             #coldRooms,
             table.concat((function()
                 local t = {}
                 for _, r in ipairs(coldRooms) do
-                    table.insert(t, r.name.."("..math.floor(r.temp).."°)")
+                    table.insert(t, r.name.."("..math.floor(r.temp).."Ã‚Â°)")
                 end
                 return t
             end)(), ", ")
@@ -1197,10 +1233,10 @@ local function runAutoFarm()
             end
         end
 
-        -- Scan từng room với 3 tool
+        -- Scan tÃ¡Â»Â«ng room vÃ¡Â»â€ºi 3 tool
         for i,room in ipairs(roomsToScan) do
             if not _G.BlairHub or not Config.AutoFarm then break end
-            -- Early exit nếu chỉ còn 1 ghost possible
+            -- Early exit nÃ¡ÂºÂ¿u chÃ¡Â»â€° cÃƒÂ²n 1 ghost possible
             if #getPossibleGhosts() == 1 then
                 if trySubmitAndGoVan(getPossibleGhosts()) then return end
             end
@@ -1234,16 +1270,16 @@ local function runAutoFarm()
         if not _G.BlairHub or not Config.AutoFarm then return end
         if trySubmitAndGoVan(getPossibleGhosts()) then return end
 
-        -- STEP 4: Drop 3 tools cũ, pickup Spirit Box
+        -- STEP 4: Drop 3 tools cÃ…Â©, pickup Spirit Box
         setFarmStatus("Dropping old tools, pickup Spirit Box...",C.FlyBlue)
 
-        -- Drop EMF, Writing, SLS nếu đang cầm
+        -- Drop EMF, Writing, SLS nÃ¡ÂºÂ¿u Ã„â€˜ang cÃ¡ÂºÂ§m
         for _,toolName in ipairs({"EMF Reader","Ghost Writing Book","SLS Camera"}) do
             if getEquipped(toolName) then
                 returnTool(toolName); task.wait(0.3)
             end
         end
-        -- Drop hết BP nếu vẫn còn slot
+        -- Drop hÃ¡ÂºÂ¿t BP nÃ¡ÂºÂ¿u vÃ¡ÂºÂ«n cÃƒÂ²n slot
         local dropAttempts=0
         while getTotalToolCount()>=3 and dropAttempts<5 do
             dropCurrentTool(); task.wait(0.3)
@@ -1280,7 +1316,7 @@ local function runAutoFarm()
 
         if not _G.BlairHub or not Config.AutoFarm then return end
 
-        -- STEP 5: Recheck nếu còn tool chưa detect đủ
+        -- STEP 5: Recheck nÃ¡ÂºÂ¿u cÃƒÂ²n tool chÃ†Â°a detect Ã„â€˜Ã¡Â»Â§
         local recheckList={}
         for _,ev in ipairs(EVIDENCE_INFO) do
             if not detectedEvidence[ev.key]
@@ -1328,9 +1364,9 @@ local function runAutoFarm()
                 goToVan()
             end
         elseif #possible==0 then
-            setFarmStatus("No match — resetting",C.Red); resetEvidence()
+            setFarmStatus("No match Ã¢â‚¬â€ resetting",C.Red); resetEvidence()
         else
-            setFarmStatus(#possible.." possible — "..detCount.." detected",C.Orange)
+            setFarmStatus(#possible.." possible Ã¢â‚¬â€ "..detCount.." detected",C.Orange)
             goToVan()
         end
     end)
