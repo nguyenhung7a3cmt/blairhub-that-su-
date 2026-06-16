@@ -1357,7 +1357,6 @@ makeButton("Photo Suspects", "chụp ảnh cursed + ghost + boo-boo", 36, Color3
         setFarmStatus("Chụp xong tất cả vật khả nghi!", C.Green)
     end)
 end)
-makeButton("Auto Quest",
 makeButton("Auto Quest", "tự động làm tất cả objectives", 35, Color3.fromRGB(50,30,80), function()
     task.spawn(function()
         if doAllQuests then
