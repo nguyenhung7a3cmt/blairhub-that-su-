@@ -11,11 +11,20 @@ pcall(function()
 end)
 
 local BASE_URL = "https://raw.githubusercontent.com/nguyenhung7a3cmt/blairhub-that-su-/master/Desktop/blairscriptgithub/BlairHub/"
-local _v = tostring(os.time()):sub(-4) -- cache bust
-local _origHttpGet = game.HttpGet
+local _v = tostring(os.time()):sub(-4)
 
 local function load(file, arg)
-    return loadstring(game:HttpGet(BASE_URL .. file))(arg)
+    local url = BASE_URL .. file .. "?v=" .. _v
+    local okSrc, src = pcall(game.HttpGet, game, url)
+    assert(okSrc and type(src) == "string" and src ~= "", "HttpGet failed: " .. file .. " | " .. tostring(src))
+
+    local fn, compileErr = loadstring(src)
+    assert(fn, "loadstring failed: " .. file .. " | " .. tostring(compileErr))
+
+    local okRun, result = pcall(fn, arg)
+    assert(okRun, "runtime failed: " .. file .. " | " .. tostring(result))
+    assert(result ~= nil, "chunk returned nil: " .. file)
+    return result
 end
 
 local S = load("part1.lua")
