@@ -41,8 +41,46 @@ local goToVan = S.goToVan
 local runAutoFarm = S.runAutoFarm
 local doAllQuests = S.doAllQuests
 
+-- ============ GLOBAL TOAST ============
+local _toastQueue = 0
+local function showToast(text, col, icon)
+    col = col or C.Green
+    icon = icon or "✅"
+    _toastQueue = _toastQueue + 1
+    local mySlot = _toastQueue
+    task.spawn(function()
+        local popup = Instance.new("Frame", sg)
+        popup.Size = UDim2.new(0, 260, 0, 34)
+        popup.Position = UDim2.new(0.5, -130, 0, 40 + (mySlot - 1) * 40)
+        popup.BackgroundColor3 = Color3.fromRGB(18, 22, 36)
+        popup.BorderSizePixel = 0
+        popup.ZIndex = 300
+        Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 8)
+        do local s = Instance.new("UIStroke", popup); s.Color = col; s.Thickness = 1.5 end
+        local lbl = Instance.new("TextLabel", popup)
+        lbl.Size = UDim2.new(1, -12, 1, 0)
+        lbl.Position = UDim2.new(0, 8, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = icon .. "  " .. text
+        lbl.TextColor3 = col
+        lbl.TextSize = 12
+        lbl.Font = Enum.Font.GothamBold
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.ZIndex = 301
+        TweenService:Create(popup, TweenInfo.new(0.25), {
+            Position = UDim2.new(0.5, -130, 0, 50 + (mySlot - 1) * 40)
+        }):Play()
+        task.wait(2.5)
+        TweenService:Create(popup, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+        TweenService:Create(lbl, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+        task.wait(0.3)
+        pcall(function() popup:Destroy() end)
+        _toastQueue = math.max(0, _toastQueue - 1)
+    end)
+end
+-- ======================================
+
 -- ESP
--- ============================================================================
 local espCache={}
 local IMPORTANT_ITEM_NAMES = {
     ["SLS Camera"] = true,
@@ -1888,44 +1926,6 @@ local traitVisible = true
 local traitListFrame = nil
 local TRAIT_MAX = 8
 
--- ============ GLOBAL TOAST ============
-local _toastQueue = 0
-local function showToast(text, col, icon)
-    col = col or C.Green
-    icon = icon or "✅"
-    _toastQueue = _toastQueue + 1
-    local mySlot = _toastQueue
-    task.spawn(function()
-        local popup = Instance.new("Frame", sg)
-        popup.Size = UDim2.new(0, 260, 0, 34)
-        popup.Position = UDim2.new(0.5, -130, 0, 40 + (mySlot - 1) * 40)
-        popup.BackgroundColor3 = Color3.fromRGB(18, 22, 36)
-        popup.BorderSizePixel = 0
-        popup.ZIndex = 300
-        Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 8)
-        do local s = Instance.new("UIStroke", popup); s.Color = col; s.Thickness = 1.5 end
-        local lbl = Instance.new("TextLabel", popup)
-        lbl.Size = UDim2.new(1, -12, 1, 0)
-        lbl.Position = UDim2.new(0, 8, 0, 0)
-        lbl.BackgroundTransparency = 1
-        lbl.Text = icon .. "  " .. text
-        lbl.TextColor3 = col
-        lbl.TextSize = 12
-        lbl.Font = Enum.Font.GothamBold
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.ZIndex = 301
-        TweenService:Create(popup, TweenInfo.new(0.25), {
-            Position = UDim2.new(0.5, -130, 0, 50 + (mySlot - 1) * 40)
-        }):Play()
-        task.wait(2.5)
-        TweenService:Create(popup, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
-        TweenService:Create(lbl, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
-        task.wait(0.3)
-        pcall(function() popup:Destroy() end)
-        _toastQueue = math.max(0, _toastQueue - 1)
-    end)
-end
-S.showToast = showToast
 -- ======= GHOST ROOM ARROW INDICATOR =======
 local GRArrow = Instance.new("BillboardGui")
 GRArrow.Name = "GRArrow"
